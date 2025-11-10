@@ -11,6 +11,8 @@ from .. import __version__
 from ..core.exceptions import ConfigError, GraphError, WeaveError
 from ..core.graph import DependencyGraph
 from ..parser.config import load_config_from_path
+from ..plugins.manager import PluginManager
+from ..plugins.base import PluginCategory
 from ..runtime.executor import MockExecutor
 from .output import WeaveOutput
 
@@ -312,6 +314,46 @@ def graph(
     except (ConfigError, GraphError, WeaveError) as e:
         output.print_error(e)
         raise typer.Exit(1)
+    except Exception as e:
+        output.print_error(e)
+        raise typer.Exit(1)
+
+
+@app.command()
+def plugins(
+    category: Optional[str] = typer.Option(
+        None, "--category", "-c", help="Filter by category"
+    ),
+    verbose: bool = typer.Option(
+        False, "--verbose", "-v", help="Show detailed information"
+    ),
+) -> None:
+    """
+    List available plugins.
+
+    Shows all built-in and loaded plugins with their metadata.
+    """
+    try:
+        # Create plugin manager
+        manager = PluginManager(console=console)
+        manager.load_builtin_plugins()
+
+        # Filter by category if specified
+        plugin_category = None
+        if category:
+            try:
+                plugin_category = PluginCategory(category)
+            except ValueError:
+                valid_categories = ", ".join(c.value for c in PluginCategory)
+                console.print(
+                    f"[red]Invalid category: {category}[/red]\n"
+                    f"Valid categories: {valid_categories}"
+                )
+                raise typer.Exit(1)
+
+        # List plugins
+        manager.list_plugins(category=plugin_category, verbose=verbose)
+
     except Exception as e:
         output.print_error(e)
         raise typer.Exit(1)

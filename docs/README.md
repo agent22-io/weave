@@ -19,6 +19,7 @@ Welcome to the Weave CLI documentation! Weave is a declarative agent orchestrati
 - [Dependency Management](guides/dependencies.md) - Managing agent dependencies
 - [Environment Variables](guides/environment.md) - Using environment variables
 - [Visualization](guides/visualization.md) - Working with graphs
+- [Plugins](guides/plugins.md) - Extending Weave with custom tools
 
 ### Architecture
 - [Overview](architecture/overview.md) - System architecture
@@ -29,6 +30,7 @@ Welcome to the Weave CLI documentation! Weave is a declarative agent orchestrati
 - **Just want to get started?** → [Quick Start Guide](getting-started/quickstart.md)
 - **Need command help?** → [CLI Commands](reference/cli-commands.md)
 - **Writing your first config?** → [Configuration Reference](reference/configuration.md)
+- **Want to extend Weave?** → [Plugins Guide](guides/plugins.md)
 - **Having issues?** → [Error Messages](reference/errors.md)
 
 ## 💡 Examples
@@ -37,6 +39,7 @@ Check out the [examples/](../examples/) directory for complete working examples:
 - `basic.weave.yaml` - Simple two-agent pipeline
 - `research-pipeline.weave.yaml` - Multi-stage research workflow
 - `data-processing.weave.yaml` - ETL-style data pipeline
+- `custom_plugin_example.py` - Example custom plugins
 
 ## 🤝 Contributing
 

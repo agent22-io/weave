@@ -85,6 +85,50 @@ Available Plugins
 - **Description:** Format data as Markdown documents
 - **Use Case:** Documentation generation, reporting
 
+#### openrouter
+- **Category:** LLM
+- **Description:** Unified access to 100+ LLM models from multiple providers
+- **Use Case:** Multi-model workflows, cost optimization, automatic fallbacks
+- **Get Started:** https://openrouter.ai/keys
+
+**Features:**
+- Single API for OpenAI, Anthropic, Google, Meta, Mistral, and 100+ models
+- Automatic fallbacks on failures
+- Cost optimization and model comparison
+- Rate limit management
+- No vendor lock-in
+
+**Quick Start:**
+```bash
+# Get your API key from https://openrouter.ai/keys
+export OPENROUTER_API_KEY="sk-or-v1-..."
+```
+
+```yaml
+# Use in configuration
+agents:
+  multi_model_agent:
+    model: "gpt-4"
+    tools:
+      - openrouter
+    config:
+      openrouter:
+        default_model: "anthropic/claude-3-opus"
+        fallback_models:
+          - "google/gemini-pro"
+          - "openai/gpt-3.5-turbo"
+```
+
+**Available Models:**
+- OpenAI: `openai/gpt-4`, `openai/gpt-3.5-turbo`
+- Anthropic: `anthropic/claude-3-opus`, `anthropic/claude-3-sonnet`
+- Google: `google/gemini-pro`, `google/palm-2`
+- Meta: `meta-llama/llama-2-70b-chat`, `meta-llama/codellama-34b`
+- Mistral: `mistralai/mistral-7b`, `mistralai/mixtral-8x7b`
+- And 100+ more!
+
+See [OpenRouter documentation](https://openrouter.ai/docs) for full model list and pricing.
+
 ---
 
 ## Using Plugins in Configs

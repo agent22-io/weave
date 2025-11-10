@@ -1,0 +1,156 @@
+version: "1.0"
+
+# OpenRouter Multi-Model Demo
+# Demonstrates unified LLM access through OpenRouter API
+
+# Global configuration
+runtime:
+  mode: "sequential"
+  max_concurrent_agents: 1
+  max_retries: 2
+
+observability:
+  enabled: true
+  log_level: "INFO"
+
+# Agents using OpenRouter for multi-model workflows
+agents:
+  # Agent 1: Code generator using GPT-4
+  code_generator:
+    model: "gpt-4"
+    capabilities: [coding, text-generation]
+    tools:
+      - openrouter
+    config:
+      openrouter:
+        model: "openai/gpt-4"
+        temperature: 0.7
+        max_tokens: 2000
+    outputs: "generated_code"
+    prompt: |
+      Generate Python code based on the requirements.
+      Focus on clean, maintainable code with proper error handling.
+
+  # Agent 2: Code reviewer using Claude
+  code_reviewer:
+    model: "claude-3-opus"
+    capabilities: [coding, analytics, qa]
+    inputs: "code_generator"
+    tools:
+      - openrouter
+    config:
+      openrouter:
+        model: "anthropic/claude-3-opus"
+        temperature: 0.3
+        max_tokens: 1500
+        # Fallback to other models if Claude is unavailable
+        fallback_models:
+          - "anthropic/claude-3-sonnet"
+          - "openai/gpt-4"
+    outputs: "code_review"
+    prompt: |
+      Review the generated code for:
+      - Code quality and best practices
+      - Security vulnerabilities
+      - Performance optimizations
+      - Error handling
+      Provide detailed feedback.
+
+  # Agent 3: Documentation writer using Gemini
+  documentation_writer:
+    model: "gemini-pro"
+    capabilities: [text-generation, documentation]
+    inputs: "code_generator"
+    tools:
+      - openrouter
+      - markdown_formatter
+    config:
+      openrouter:
+        model: "google/gemini-pro"
+        temperature: 0.5
+        max_tokens: 1000
+    outputs: "documentation"
+    prompt: |
+      Write comprehensive documentation for the code:
+      - Overview and purpose
+      - API reference
+      - Usage examples
+      - Installation instructions
+
+  # Agent 4: Cost optimizer comparing multiple models
+  cost_optimizer:
+    model: "gpt-3.5-turbo"
+    capabilities: [analytics, optimization]
+    inputs: "code_reviewer"
+    tools:
+      - openrouter
+      - calculator
+    config:
+      openrouter:
+        model: "openai/gpt-3.5-turbo"
+        temperature: 0.2
+        max_tokens: 800
+        # Enable cost tracking
+        track_costs: true
+    outputs: "cost_analysis"
+    prompt: |
+      Analyze the cost-effectiveness of using different models:
+      - Compare pricing across providers
+      - Evaluate quality vs. cost tradeoffs
+      - Recommend optimal model selection strategy
+
+  # Agent 5: Multi-model ensemble using fallbacks
+  ensemble_validator:
+    model: "llama-2-70b"
+    capabilities: [analytics, qa]
+    inputs: "code_reviewer"
+    tools:
+      - openrouter
+    config:
+      openrouter:
+        model: "meta-llama/llama-2-70b-chat"
+        temperature: 0.4
+        max_tokens: 1200
+        # Comprehensive fallback chain
+        fallback_models:
+          - "meta-llama/codellama-34b"
+          - "mistralai/mixtral-8x7b"
+          - "openai/gpt-4"
+          - "anthropic/claude-3-sonnet"
+        # Retry on errors
+        retry_on_failure: true
+        max_retries: 3
+    outputs: "validation_report"
+    prompt: |
+      Validate the code review findings:
+      - Verify identified issues are legitimate
+      - Check for false positives
+      - Prioritize issues by severity
+      - Provide final validation report
+
+# Workflows demonstrating different OpenRouter use cases
+weaves:
+  # Complete multi-model workflow
+  full_pipeline:
+    description: "Complete code generation, review, and documentation pipeline using multiple LLM providers"
+    agents:
+      - code_generator        # OpenAI GPT-4
+      - code_reviewer         # Anthropic Claude with fallbacks
+      - documentation_writer  # Google Gemini
+      - cost_optimizer        # OpenAI GPT-3.5
+      - ensemble_validator    # Meta Llama with fallback chain
+
+  # Quick code generation and review
+  quick_review:
+    description: "Quick code generation and review using best models"
+    agents:
+      - code_generator
+      - code_reviewer
+
+  # Cost-optimized workflow
+  budget_friendly:
+    description: "Cost-optimized workflow using cheaper models with fallbacks"
+    agents:
+      - code_generator
+      - code_reviewer
+      - cost_optimizer

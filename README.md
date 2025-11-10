@@ -104,7 +104,25 @@ weaves:
     agents: [researcher, writer, editor]
 ```
 
-### 2. Preview the Execution Plan
+### 2. Run agent
+
+
+```bash
+
+# Or use development mode with auto-reload
+weave dev --real --watch
+```
+
+**Inspect completed runs:**
+```bash
+# List recent runs
+weave state --list
+
+# Inspect specific run with detailed metrics
+weave inspect <run-id>
+```
+
+### 3. Review workflow
 
 ```bash
 weave plan
@@ -125,10 +143,10 @@ Output:
 Execution graph:
   researcher → writer → editor
 
-3 agents will be executed.
+3 agents will be created.
 ```
 
-### 3. Execute the Workflow
+### 4. Create Workflow
 
 ```bash
 weave apply
@@ -167,60 +185,7 @@ Summary:
   Total time: 4.2s
   Status: SUCCESS
 ```
-
-### 4. Real LLM Execution (V2)
-
-**Set up API keys:**
-```bash
-export OPENAI_API_KEY="sk-..."
-export ANTHROPIC_API_KEY="sk-ant-..."
-```
-
-**Run with real LLMs:**
-```bash
-# Run with actual API calls (costs apply!)
-weave apply --real
-
-# Or use development mode with auto-reload
-weave dev --real --watch
-```
-
-**Inspect completed runs:**
-```bash
-# List recent runs
-weave state --list
-
-# Inspect specific run with detailed metrics
-weave inspect <run-id>
-```
-
-### 5. Development Workflow (V2)
-
-Interactive development with file watching:
-
-```bash
-$ weave dev --watch
-
-🔧 Development Mode
-
-🧵 Executing Weave: content_pipeline
-Run ID: a1b2c3d4
-
-  ✓ researcher → research_summary (1.2s, 450 tokens)
-  ✓ writer → draft_article (2.1s, 820 tokens)
-  ✓ editor → final_article (0.9s, 320 tokens)
-
-Summary: 3 succeeded, 0 failed
-
-👀 Watching for changes... (Ctrl+C to stop)
-
-# Edit .weave.yaml...
-
-📝 Config changed, reloading...
-# Automatically re-runs with new config
-```
-
-### 6. Cloud Deployment (V3)
+### Cloud Deployment (V3)
 
 Deploy your workflows to production:
 

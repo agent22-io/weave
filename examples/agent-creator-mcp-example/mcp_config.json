@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "agent_creator_mcp": {
+      "command": "python",
+      "args": ["agent_creator_server.py"],
+      "description": "Interactive agent creation through guided questions",
+      "env": {}
+    }
+  }
+}

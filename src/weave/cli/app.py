@@ -626,6 +626,157 @@ def mcp(
         raise typer.Exit(1)
 
 
+@app.command()
+def state(
+    list_runs: bool = typer.Option(False, "--list", "-l", help="List all execution runs"),
+    show_run: Optional[str] = typer.Option(None, "--show", "-s", help="Show specific run details"),
+    weave: Optional[str] = typer.Option(None, "--weave", "-w", help="Filter by weave name"),
+    status_filter: Optional[str] = typer.Option(None, "--status", help="Filter by status"),
+    latest: bool = typer.Option(False, "--latest", help="Show latest run"),
+    cleanup: bool = typer.Option(False, "--cleanup", help="Clean up old state (30 days)"),
+    unlock: bool = typer.Option(False, "--unlock", help="Force release lock file"),
+    config: Path = typer.Option(".weave.yaml", "--config", "-c", help="Path to config file"),
+) -> None:
+    """
+    Manage execution state and lock files.
+
+    View run history, check status, and manage locks.
+    """
+    try:
+        from ..state.manager import StateManager
+        from rich.table import Table
+        from datetime import datetime
+
+        # Load config to get state file path
+        try:
+            weave_config = load_config_from_path(config)
+            if weave_config.storage:
+                state_file = weave_config.storage.state_file
+                lock_file = weave_config.storage.lock_file
+            else:
+                state_file = ".weave/state.yaml"
+                lock_file = ".weave/weave.lock"
+        except Exception:
+            state_file = ".weave/state.yaml"
+            lock_file = ".weave/weave.lock"
+
+        manager = StateManager(state_file=state_file, lock_file=lock_file)
+
+        # Force unlock
+        if unlock:
+            if manager.release_lock():
+                console.print("✅ [green]Lock released successfully[/green]")
+            else:
+                console.print("ℹ️  [yellow]No lock file found[/yellow]")
+            return
+
+        # Cleanup old state
+        if cleanup:
+            deleted = manager.cleanup_old_states(retention_days=30)
+            console.print(f"✅ [green]Cleaned up {deleted} old state(s)[/green]")
+            return
+
+        # Show latest run
+        if latest:
+            state_obj = manager.get_latest_state(weave_name=weave)
+            if not state_obj:
+                console.print("[yellow]No execution history found[/yellow]")
+                return
+
+            console.print(f"\n[bold]Latest Run: {state_obj.run_id}[/bold]\n")
+            console.print(f"Weave: {state_obj.weave_name}")
+            console.print(f"Status: {state_obj.status}")
+            console.print(f"Started: {datetime.fromtimestamp(state_obj.start_time)}")
+            if state_obj.end_time:
+                console.print(f"Ended: {datetime.fromtimestamp(state_obj.end_time)}")
+            console.print(f"Duration: {state_obj.duration:.1f}s" if state_obj.duration else "In progress")
+            console.print(f"Agents: {state_obj.completed_agents}/{state_obj.total_agents} completed")
+            if state_obj.failed_agents > 0:
+                console.print(f"Failed: {state_obj.failed_agents}")
+            console.print()
+            return
+
+        # Show specific run
+        if show_run:
+            state_obj = manager.load_state(show_run)
+            if not state_obj:
+                console.print(f"[red]Run not found: {show_run}[/red]")
+                raise typer.Exit(1)
+
+            console.print(f"\n[bold]Run Details: {state_obj.run_id}[/bold]\n")
+            console.print(f"Weave: {state_obj.weave_name}")
+            console.print(f"Status: {state_obj.status}")
+            console.print(f"Started: {datetime.fromtimestamp(state_obj.start_time)}")
+            if state_obj.end_time:
+                console.print(f"Ended: {datetime.fromtimestamp(state_obj.end_time)}")
+            console.print(f"Duration: {state_obj.duration:.1f}s" if state_obj.duration else "In progress")
+
+            # Agent status table
+            table = Table(title="Agent Execution Status", show_header=True, header_style="bold magenta")
+            table.add_column("Agent", style="cyan")
+            table.add_column("Status", style="green")
+            table.add_column("Duration", style="yellow")
+            table.add_column("Tokens", style="blue")
+
+            for agent_name, record in state_obj.agents.items():
+                duration_str = f"{record.duration:.1f}s" if record.duration else "N/A"
+                tokens_str = str(record.tokens_used) if record.tokens_used else "N/A"
+                table.add_row(agent_name, record.status, duration_str, tokens_str)
+
+            console.print("\n")
+            console.print(table)
+            console.print()
+            return
+
+        # List all runs (default)
+        runs = manager.list_runs(weave_name=weave, status=status_filter)
+
+        if not runs:
+            console.print("[yellow]No execution runs found[/yellow]")
+            if weave or status_filter:
+                console.print("[dim]Try removing filters[/dim]")
+            return
+
+        table = Table(title="Execution Runs", show_header=True, header_style="bold magenta")
+        table.add_column("Run ID", style="cyan")
+        table.add_column("Weave", style="green")
+        table.add_column("Status", style="yellow")
+        table.add_column("Started", style="blue")
+        table.add_column("Duration", style="white")
+        table.add_column("Agents", style="magenta")
+
+        for run in runs[:20]:  # Limit to 20 most recent
+            started = datetime.fromtimestamp(run.start_time).strftime("%Y-%m-%d %H:%M:%S")
+            duration = f"{run.duration:.1f}s" if run.duration else "In progress"
+            agents_str = f"{run.completed_agents}/{run.total_agents}"
+            if run.failed_agents > 0:
+                agents_str += f" ({run.failed_agents} failed)"
+
+            table.add_row(
+                run.run_id,
+                run.weave_name,
+                run.status,
+                started,
+                duration,
+                agents_str
+            )
+
+        console.print("\n")
+        console.print(table)
+        console.print(f"\n[dim]Showing {min(len(runs), 20)} of {len(runs)} total runs[/dim]")
+        console.print("[dim]Use --show <run_id> to view details[/dim]\n")
+
+        # Show lock status
+        if manager.is_locked():
+            lock = manager.read_lock()
+            console.print(f"[yellow]⚠️  Currently locked by run: {lock.run_id}[/yellow]")
+            console.print(f"[dim]Use --unlock to force release[/dim]\n")
+
+    except Exception as e:
+        output.print_error(e)
+        raise typer.Exit(1)
+
+
 def main() -> None:
     """Entry point for the CLI."""
     app()

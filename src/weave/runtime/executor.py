@@ -65,10 +65,57 @@ class MockExecutor:
         self.outputs: Dict[str, AgentOutput] = {}
         self.hooks: List[ExecutorHook] = []
         self.tool_executor = None
+        self.state_manager = None
+        self.storage = None
+        self.run_id = None
 
-        # Initialize tool executor if config provided
+        # Initialize systems if config provided
         if config:
             self._initialize_tools()
+            self._initialize_state_management()
+            self._initialize_storage()
+
+    def _initialize_state_management(self) -> None:
+        """Initialize state management system."""
+        try:
+            from ..state.manager import StateManager
+
+            if self.config and self.config.storage:
+                state_file = self.config.storage.state_file
+                lock_file = self.config.storage.lock_file
+            else:
+                state_file = ".weave/state.yaml"
+                lock_file = ".weave/weave.lock"
+
+            self.state_manager = StateManager(
+                state_file=state_file, lock_file=lock_file
+            )
+
+        except ImportError:
+            if self.verbose:
+                self.console.print(
+                    "[yellow]Warning: State management not available[/yellow]"
+                )
+
+    def _initialize_storage(self) -> None:
+        """Initialize storage system."""
+        try:
+            from ..state.storage import Storage
+
+            if self.config and self.config.storage:
+                base_path = self.config.storage.base_path
+                format = self.config.storage.format
+            else:
+                base_path = ".weave/storage"
+                format = "json"
+
+            self.storage = Storage(base_path=base_path, format=format)
+
+        except ImportError:
+            if self.verbose:
+                self.console.print(
+                    "[yellow]Warning: Storage system not available[/yellow]"
+                )
 
     def _initialize_tools(self) -> None:
         """Initialize tool executor with custom tools from config."""
@@ -244,7 +291,38 @@ class MockExecutor:
         execution_order = graph.get_execution_order()
         total_agents = len(execution_order)
 
+        # Create run ID and state
+        if self.state_manager and not dry_run:
+            from ..state.manager import ExecutionState, AgentExecutionRecord
+
+            self.run_id = self.state_manager.create_run_id()
+
+            # Try to create lock
+            try:
+                self.state_manager.create_lock(weave_name, self.run_id)
+                if self.verbose:
+                    self.console.print(f"[dim]🔒 Created lock: {self.run_id}[/dim]")
+            except RuntimeError as e:
+                self.console.print(f"[red]⚠️  {e}[/red]")
+                raise
+
+            # Initialize execution state
+            exec_state = ExecutionState(
+                weave_name=weave_name,
+                run_id=self.run_id,
+                status="running",
+                start_time=time.time(),
+                total_agents=total_agents,
+                agents={
+                    name: AgentExecutionRecord(agent_name=name, status="pending")
+                    for name in execution_order
+                },
+            )
+            self.state_manager.save_state(exec_state)
+
         self.console.print(f"\n🚀 {'[DRY RUN] ' if dry_run else ''}Applying weave: {weave_name}\n")
+        if self.run_id and self.verbose:
+            self.console.print(f"[dim]Run ID: {self.run_id}[/dim]\n")
         self.console.print("Executing agents in order:")
         self.console.print("━" * 50 + "\n")
 
@@ -271,17 +349,76 @@ class MockExecutor:
                 if upstream_output:
                     self.console.print(f"  📥 Input from: {agent.inputs}")
 
+            # Update state: agent starting
+            if self.state_manager and not dry_run:
+                exec_state.agents[agent_name].status = "running"
+                exec_state.agents[agent_name].start_time = time.time()
+                self.state_manager.save_state(exec_state)
+
             # Execute
             try:
                 result = self.execute_agent(agent, upstream_output)
                 successful += 1
+
+                # Update state: agent completed
+                if self.state_manager and not dry_run:
+                    exec_state.agents[agent_name].status = "completed"
+                    exec_state.agents[agent_name].end_time = time.time()
+                    exec_state.agents[agent_name].duration = result.execution_time
+                    exec_state.agents[agent_name].outputs = result.output_key
+                    exec_state.agents[agent_name].tokens_used = result.tokens_used
+                    exec_state.completed_agents += 1
+                    self.state_manager.save_state(exec_state)
+
+                # Save output to storage if enabled
+                if self.storage and agent.storage and agent.storage.save_outputs:
+                    self.storage.save_agent_output(
+                        agent_name, result.data, run_id=self.run_id
+                    )
+
             except Exception as e:
                 self.console.print(f"  ❌ Execution failed: {e}")
                 failed += 1
 
+                # Update state: agent failed
+                if self.state_manager and not dry_run:
+                    exec_state.agents[agent_name].status = "failed"
+                    exec_state.agents[agent_name].end_time = time.time()
+                    exec_state.agents[agent_name].error = str(e)
+                    exec_state.failed_agents += 1
+                    self.state_manager.save_state(exec_state)
+
             self.console.print()  # Blank line between agents
 
         total_time = time.time() - start_time
+
+        # Update final state and release lock
+        if self.state_manager and not dry_run:
+            status = "completed" if failed == 0 else "failed"
+            exec_state.status = status
+            exec_state.end_time = time.time()
+            exec_state.duration = total_time
+            self.state_manager.save_state(exec_state)
+
+            # Release lock
+            self.state_manager.release_lock()
+            if self.verbose:
+                self.console.print(f"[dim]🔓 Released lock[/dim]\n")
+
+            # Save execution log if storage enabled
+            if self.storage:
+                log_data = {
+                    "run_id": self.run_id,
+                    "weave_name": weave_name,
+                    "status": status,
+                    "total_time": total_time,
+                    "successful": successful,
+                    "failed": failed,
+                    "agents": {
+                        name: rec.dict() for name, rec in exec_state.agents.items()
+                    },
+                }
+                self.storage.save_execution_log(self.run_id, log_data)
 
         self.console.print("━" * 50 + "\n")
 
@@ -302,6 +439,11 @@ class MockExecutor:
             if execution_order and execution_order[-1] in self.outputs:
                 final = self.outputs[execution_order[-1]]
                 self.console.print(f"\nFinal output: {final.output_key}")
+
+            # Show storage info if enabled
+            if self.storage and self.run_id:
+                self.console.print(f"\n[dim]Run ID: {self.run_id}[/dim]")
+                self.console.print(f"[dim]State saved to: {self.state_manager.state_file if self.state_manager else 'N/A'}[/dim]")
 
         return ExecutionSummary(
             weave_name=weave_name,

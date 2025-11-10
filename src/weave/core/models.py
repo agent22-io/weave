@@ -205,12 +205,88 @@ class GlobalStorageConfig(BaseModel):
     retention_days: int = 30  # Days to retain old state
 
 
+class ObservabilityConfig(BaseModel):
+    """Observability configuration for monitoring and debugging."""
+
+    # Logging configuration
+    enabled: bool = True
+    log_level: str = "INFO"  # DEBUG, INFO, WARNING, ERROR, CRITICAL
+    log_format: str = "json"  # json, text, structured
+    log_file: Optional[str] = ".weave/logs/weave.log"
+    log_to_console: bool = True
+    log_agent_inputs: bool = True  # Log agent inputs
+    log_agent_outputs: bool = True  # Log agent outputs
+    log_tool_calls: bool = True  # Log tool invocations
+
+    # Metrics configuration
+    collect_metrics: bool = True
+    metrics_format: str = "prometheus"  # prometheus, statsd, datadog
+    metrics_endpoint: Optional[str] = None
+    track_token_usage: bool = True  # Track LLM token usage
+    track_latency: bool = True  # Track agent execution time
+    track_success_rate: bool = True  # Track success/failure rates
+
+    # Tracing configuration
+    enable_tracing: bool = False  # Distributed tracing
+    tracing_backend: str = "opentelemetry"  # opentelemetry, jaeger, zipkin
+    tracing_endpoint: Optional[str] = None
+    trace_sampling_rate: float = 1.0  # 0.0 to 1.0
+
+    # Export configuration
+    export_traces: bool = False
+    export_metrics: bool = False
+    export_logs: bool = False
+    export_dir: str = ".weave/exports"
+
+
+class RuntimeConfig(BaseModel):
+    """Runtime execution configuration."""
+
+    # Execution mode
+    mode: str = "sequential"  # sequential, parallel, async
+    max_concurrent_agents: int = 1  # Max agents running in parallel
+    enable_caching: bool = True  # Cache agent outputs
+
+    # Retry policy
+    max_retries: int = 0  # Number of retries on failure
+    retry_delay: float = 1.0  # Initial retry delay in seconds
+    retry_backoff: str = "exponential"  # exponential, linear, constant
+    retry_backoff_multiplier: float = 2.0  # Backoff multiplier
+    retry_on_errors: List[str] = Field(default_factory=lambda: ["timeout", "api_error"])
+
+    # Timeouts
+    default_timeout: Optional[float] = 300.0  # Default agent timeout (seconds)
+    weave_timeout: Optional[float] = 3600.0  # Total weave timeout (seconds)
+    tool_timeout: Optional[float] = 60.0  # Tool execution timeout (seconds)
+
+    # Rate limiting
+    enable_rate_limiting: bool = False
+    requests_per_minute: int = 60
+    tokens_per_minute: Optional[int] = None
+
+    # Resource limits
+    max_memory_mb: Optional[int] = None  # Max memory per agent
+    max_cpu_percent: Optional[float] = None  # Max CPU usage
+
+    # Error handling
+    stop_on_error: bool = True  # Stop execution on first error
+    continue_on_agent_failure: bool = False  # Continue if agent fails
+    save_partial_results: bool = True  # Save results of successful agents
+
+    # Execution options
+    dry_run: bool = False  # Dry run mode (no actual execution)
+    verbose: bool = False  # Verbose output
+    debug: bool = False  # Debug mode
+
+
 class WeaveConfig(BaseModel):
     """Complete Weave configuration file."""
 
     version: str = "1.0"
     env: Dict[str, str] = Field(default_factory=dict)
     storage: Optional[GlobalStorageConfig] = None  # Global storage configuration
+    observability: Optional[ObservabilityConfig] = None  # Observability configuration
+    runtime: Optional[RuntimeConfig] = None  # Runtime configuration
     tools: Dict[str, CustomToolDef] = Field(default_factory=dict)  # Custom tool definitions
     agents: Dict[str, Agent]
     weaves: Dict[str, Weave]

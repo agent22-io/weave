@@ -205,12 +205,15 @@ def apply(
     verbose: bool = typer.Option(
         False, "--verbose", "-v", help="Verbose output"
     ),
+    real: bool = typer.Option(
+        False, "--real", help="Use real LLM execution (requires API keys)"
+    ),
 ) -> None:
     """
     Execute the agent flow.
 
-    Runs all agents in the weave according to their dependency order.
-    In v1, this uses mock execution. Future versions will support real LLM calls.
+    By default, uses mock execution for testing.
+    Use --real for actual LLM API calls (requires API keys).
     """
     try:
         # Load config
@@ -236,9 +239,20 @@ def apply(
         graph.build(weave_name)
         graph.validate()
 
-        # Execute
-        executor = MockExecutor(console=console, verbose=verbose, config=weave_config)
-        summary = executor.execute_flow(graph, weave_name, dry_run=dry_run)
+        # Choose executor based on --real flag
+        if real:
+            from ..runtime.real_executor import RealExecutor
+            import asyncio
+
+            console.print("[bold green]🚀 Real execution mode[/bold green]")
+            console.print("[dim]Using actual LLM APIs (costs may apply)[/dim]\n")
+
+            executor = RealExecutor(console=console, verbose=verbose, config=weave_config)
+            summary = asyncio.run(executor.execute_flow(graph, weave_name, dry_run=dry_run))
+        else:
+            console.print("[dim]Mock execution mode (use --real for actual LLM calls)[/dim]\n")
+            executor = MockExecutor(console=console, verbose=verbose, config=weave_config)
+            summary = executor.execute_flow(graph, weave_name, dry_run=dry_run)
 
         # Exit with error if any failed
         if summary.failed > 0:
@@ -771,6 +785,208 @@ def state(
             lock = manager.read_lock()
             console.print(f"[yellow]⚠️  Currently locked by run: {lock.run_id}[/yellow]")
             console.print(f"[dim]Use --unlock to force release[/dim]\n")
+
+    except Exception as e:
+        output.print_error(e)
+        raise typer.Exit(1)
+
+
+@app.command()
+def dev(
+    config: Path = typer.Option(
+        ".weave.yaml", "--config", "-c", help="Path to config file"
+    ),
+    weave: Optional[str] = typer.Option(
+        None, "--weave", "-w", help="Specific weave to run"
+    ),
+    watch: bool = typer.Option(
+        False, "--watch", help="Watch for file changes and auto-reload"
+    ),
+    real: bool = typer.Option(
+        False, "--real", help="Use real LLM execution"
+    ),
+) -> None:
+    """
+    Development mode for iterative workflow development.
+
+    Runs the weave and optionally watches for config changes.
+    """
+    try:
+        import asyncio
+        from watchdog.observers import Observer
+        from watchdog.events import FileSystemEventHandler
+
+        class ConfigChangeHandler(FileSystemEventHandler):
+            def __init__(self, config_path, weave_name, real_mode):
+                self.config_path = config_path
+                self.weave_name = weave_name
+                self.real_mode = real_mode
+                self.last_run = 0
+
+            def on_modified(self, event):
+                if event.src_path.endswith(str(self.config_path)):
+                    # Debounce: only run if >1 second since last run
+                    import time
+                    now = time.time()
+                    if now - self.last_run < 1:
+                        return
+                    self.last_run = now
+
+                    console.print("\n[yellow]📝 Config changed, reloading...[/yellow]\n")
+                    run_weave(self.config_path, self.weave_name, self.real_mode)
+
+        def run_weave(config_path, weave_name_override, real_mode):
+            try:
+                # Load config
+                weave_config = load_config_from_path(config_path)
+
+                # Determine weave
+                if weave_name_override:
+                    if weave_name_override not in weave_config.weaves:
+                        console.print(f"[red]Weave '{weave_name_override}' not found[/red]")
+                        return
+                    weave_name = weave_name_override
+                else:
+                    weave_name = list(weave_config.weaves.keys())[0]
+
+                # Build and execute
+                graph = DependencyGraph(weave_config)
+                graph.build(weave_name)
+                graph.validate()
+
+                if real_mode:
+                    from ..runtime.real_executor import RealExecutor
+                    executor = RealExecutor(console=console, verbose=True, config=weave_config)
+                    asyncio.run(executor.execute_flow(graph, weave_name, dry_run=False))
+                else:
+                    executor = MockExecutor(console=console, verbose=True, config=weave_config)
+                    executor.execute_flow(graph, weave_name, dry_run=False)
+
+            except Exception as e:
+                console.print(f"[red]Error: {e}[/red]")
+
+        # Initial run
+        console.print("[bold cyan]🔧 Development Mode[/bold cyan]\n")
+        run_weave(config, weave, real)
+
+        if watch:
+            console.print("\n[dim]👀 Watching for changes... (Ctrl+C to stop)[/dim]\n")
+
+            event_handler = ConfigChangeHandler(config, weave, real)
+            observer = Observer()
+            observer.schedule(event_handler, str(config.parent), recursive=False)
+            observer.start()
+
+            try:
+                import time
+                while True:
+                    time.sleep(1)
+            except KeyboardInterrupt:
+                observer.stop()
+                console.print("\n[dim]Stopped watching[/dim]\n")
+            observer.join()
+
+    except ImportError:
+        console.print("[red]watchdog not installed. Run: pip install watchdog[/red]")
+        raise typer.Exit(1)
+    except Exception as e:
+        output.print_error(e)
+        raise typer.Exit(1)
+
+
+@app.command()
+def inspect(
+    run_id: str = typer.Argument(..., help="Run ID to inspect"),
+    config: Path = typer.Option(
+        ".weave.yaml", "--config", "-c", help="Path to config file"
+    ),
+    show_prompts: bool = typer.Option(
+        False, "--prompts", help="Show LLM prompts sent"
+    ),
+    show_outputs: bool = typer.Option(
+        True, "--outputs/--no-outputs", help="Show agent outputs"
+    ),
+    show_tools: bool = typer.Option(
+        True, "--tools/--no-tools", help="Show tool calls"
+    ),
+) -> None:
+    """
+    Inspect a completed run in detail.
+
+    Shows full execution trace, agent I/O, tool calls, and metrics.
+    """
+    try:
+        from ..state.manager import StateManager
+        from rich.table import Table
+        from rich.panel import Panel
+        from rich.syntax import Syntax
+        from datetime import datetime
+        import json
+
+        # Load config to get state file path
+        try:
+            weave_config = load_config_from_path(config)
+            if weave_config.storage:
+                state_file = weave_config.storage.state_file
+            else:
+                state_file = ".weave/state.yaml"
+        except Exception:
+            state_file = ".weave/state.yaml"
+
+        manager = StateManager(state_file=state_file)
+
+        # Load state
+        state = manager.load_state(run_id)
+        if not state:
+            console.print(f"[red]Run not found: {run_id}[/red]")
+            console.print("[dim]Use 'weave state --list' to see available runs[/dim]")
+            raise typer.Exit(1)
+
+        # Display run overview
+        console.print(f"\n[bold]Run Inspection: {run_id}[/bold]\n")
+
+        overview = Table.grid(padding=(0, 2))
+        overview.add_column(style="cyan")
+        overview.add_column()
+
+        overview.add_row("Weave:", state.weave_name)
+        overview.add_row("Status:", f"[green]{state.status}[/green]" if state.status == "completed" else f"[red]{state.status}[/red]")
+        overview.add_row("Started:", datetime.fromtimestamp(state.start_time).strftime("%Y-%m-%d %H:%M:%S"))
+        if state.end_time:
+            overview.add_row("Ended:", datetime.fromtimestamp(state.end_time).strftime("%Y-%m-%d %H:%M:%S"))
+        overview.add_row("Duration:", f"{state.duration:.2f}s" if state.duration else "In progress")
+        overview.add_row("Agents:", f"{state.completed_agents}/{state.total_agents} completed")
+        if state.failed_agents > 0:
+            overview.add_row("Failed:", f"[red]{state.failed_agents}[/red]")
+
+        console.print(overview)
+        console.print()
+
+        # Display agent execution details
+        console.print("[bold]Agent Execution Details[/bold]\n")
+
+        for agent_name, record in state.agents.items():
+            status_icon = "✓" if record.status == "success" else "✗"
+            status_color = "green" if record.status == "success" else "red"
+
+            header = f"{status_icon} [{status_color}]{agent_name}[/{status_color}]"
+            if record.duration:
+                header += f" [dim]({record.duration:.2f}s, {record.tokens_used} tokens)[/dim]"
+
+            console.print(header)
+
+            if show_outputs and record.output:
+                # Display output
+                if isinstance(record.output, dict):
+                    output_json = json.dumps(record.output, indent=2)
+                    syntax = Syntax(output_json, "json", theme="monokai", line_numbers=False)
+                    console.print(Panel(syntax, title="Output", border_style="dim"))
+                else:
+                    console.print(Panel(str(record.output), title="Output", border_style="dim"))
+
+            console.print()
+
+        console.print("[dim]Tip: Use --no-outputs to hide output details[/dim]\n")
 
     except Exception as e:
         output.print_error(e)

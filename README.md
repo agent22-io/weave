@@ -9,38 +9,77 @@ Weave allows you to define and compose AI agents using YAML configuration files 
 
 ## ✨ Features
 
+### Core Features
 - 🎯 **Declarative Configuration** - Define agents and workflows in clean YAML
 - 🔗 **Dependency Management** - Automatic dependency resolution and execution ordering
 - 📊 **Beautiful CLI** - Professional UX with rich terminal output
-- 🔍 **Validation** - Schema validation with clear error messages
+- 🔍 **Validation** - Schema validation with helpful error messages
 - 🎨 **Visualization** - ASCII and Mermaid graph generation
-- 🪝 **Extensible** - Hook system for custom execution (v2: real LLM calls)
-- 🧪 **Mock Execution** - Test workflows without API calls (v1)
+
+### V2 Features (NEW! 🎉)
+- 🚀 **Real LLM Execution** - Actual API calls to OpenAI and Anthropic
+- 🔄 **Development Mode** - Interactive workflow development with auto-reload (`weave dev --watch`)
+- 🔎 **Run Inspection** - Detailed analysis of completed runs (`weave inspect`)
+- 💡 **Smart Error Messages** - Helpful suggestions with fuzzy matching
+- 🔧 **Plugin Execution** - Plugins run during agent execution
+- 📈 **Full Observability** - Track prompts, outputs, and token usage
+
+### Additional Features
+- 🧪 **Mock Execution** - Test workflows without API calls (default mode)
 - 🔧 **Tool Calling** - Built-in and custom tools with JSON schema validation
 - 🌐 **MCP Integration** - Connect to Model Context Protocol servers for external tools
 - 🔌 **Plugin System** - Built-in and custom plugins for extending agent capabilities
 - 📁 **Resource Management** - Organize prompts, skills, and knowledge bases in files
+- 💾 **State Management** - Execution state tracking with run history
+- 🎯 **Deployment Ready** - Production configuration with observability, retries, and health checks
 
 ## 📦 Installation
 
-### From Source
+### Basic Installation (Mock Mode)
 
 ```bash
 # Clone the repository
 git clone https://github.com/weave/weave-cli.git
 cd weave-cli
 
-# Install dependencies
+# Install core dependencies
 pip install -e .
 
 # Verify installation
 weave --version
 ```
 
+### With Real LLM Support (V2)
+
+```bash
+# Install with LLM providers
+pip install -e ".[llm]"
+
+# Or install specific providers
+pip install -e . openai anthropic
+```
+
+### With Development Tools
+
+```bash
+# Install with file watching for dev mode
+pip install -e ".[watch]"
+
+# Or install all optional features
+pip install -e ".[all]"
+```
+
 ### Using pip (coming soon)
 
 ```bash
+# Basic
 pip install weave-cli
+
+# With real LLM support
+pip install weave-cli[llm]
+
+# With all features
+pip install weave-cli[all]
 ```
 
 ## 🚀 Quick Start
@@ -142,6 +181,58 @@ Summary:
   Agents executed: 3
   Total time: 4.2s
   Status: SUCCESS
+```
+
+### 4. Real LLM Execution (V2)
+
+**Set up API keys:**
+```bash
+export OPENAI_API_KEY="sk-..."
+export ANTHROPIC_API_KEY="sk-ant-..."
+```
+
+**Run with real LLMs:**
+```bash
+# Run with actual API calls (costs apply!)
+weave apply --real
+
+# Or use development mode with auto-reload
+weave dev --real --watch
+```
+
+**Inspect completed runs:**
+```bash
+# List recent runs
+weave state --list
+
+# Inspect specific run with detailed metrics
+weave inspect <run-id>
+```
+
+### 5. Development Workflow (V2)
+
+Interactive development with file watching:
+
+```bash
+$ weave dev --watch
+
+🔧 Development Mode
+
+🧵 Executing Weave: content_pipeline
+Run ID: a1b2c3d4
+
+  ✓ researcher → research_summary (1.2s, 450 tokens)
+  ✓ writer → draft_article (2.1s, 820 tokens)
+  ✓ editor → final_article (0.9s, 320 tokens)
+
+Summary: 3 succeeded, 0 failed
+
+👀 Watching for changes... (Ctrl+C to stop)
+
+# Edit .weave.yaml...
+
+📝 Config changed, reloading...
+# Automatically re-runs with new config
 ```
 
 ### 4. Visualize the Dependency Graph

@@ -492,6 +492,9 @@ class WeaveConfig(BaseModel):
     @model_validator(mode="after")
     def validate_references(self) -> "WeaveConfig":
         """Validate all agent references and tool definitions are valid."""
+        from ..core.exceptions import ConfigError
+        import difflib
+
         agent_names = set(self.agents.keys())
 
         # Inject agent names into agent objects
@@ -501,18 +504,38 @@ class WeaveConfig(BaseModel):
         # Check inputs reference valid agents
         for name, agent in self.agents.items():
             if agent.inputs and agent.inputs not in agent_names:
-                raise ValueError(
-                    f"Agent '{name}' references unknown input agent '{agent.inputs}'"
+                # Find similar agent names
+                similar = difflib.get_close_matches(
+                    agent.inputs, agent_names, n=3, cutoff=0.6
                 )
+
+                error_msg = f"Agent '{name}' references unknown input agent '{agent.inputs}'"
+
+                if similar:
+                    suggestion = f"Did you mean: {', '.join(similar)}?"
+                else:
+                    suggestion = f"Available agents: {', '.join(sorted(agent_names))}"
+
+                raise ConfigError(error_msg, suggestion=suggestion)
 
         # Check weaves reference valid agents
         for weave_name, weave in self.weaves.items():
             weave.name = weave_name
             for agent_name in weave.agents:
                 if agent_name not in agent_names:
-                    raise ValueError(
-                        f"Weave '{weave_name}' references unknown agent '{agent_name}'"
+                    # Find similar agent names
+                    similar = difflib.get_close_matches(
+                        agent_name, agent_names, n=3, cutoff=0.6
                     )
+
+                    error_msg = f"Weave '{weave_name}' references unknown agent '{agent_name}'"
+
+                    if similar:
+                        suggestion = f"Did you mean: {', '.join(similar)}?"
+                    else:
+                        suggestion = f"Available agents: {', '.join(sorted(agent_names))}"
+
+                    raise ConfigError(error_msg, suggestion=suggestion)
 
         # Note: We don't validate tool names here because:
         # 1. Built-in tools are loaded at runtime

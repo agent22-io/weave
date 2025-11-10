@@ -185,7 +185,7 @@ Summary:
   Total time: 4.2s
   Status: SUCCESS
 ```
-### Cloud Deployment (V3)
+### Cloud Deployment
 
 Deploy your workflows to production:
 

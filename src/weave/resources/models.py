@@ -15,6 +15,7 @@ class ResourceType(str, Enum):
     RULE = "rule"
     BEHAVIOR = "behavior"
     SUB_AGENT = "sub_agent"
+    MEMORY = "memory"
 
 
 class SystemPrompt(BaseModel):
@@ -91,3 +92,12 @@ class SubAgentPrompt(BaseModel):
     context: str = ""
     tools: List[str] = Field(default_factory=list)
     tags: List[str] = Field(default_factory=list)
+
+
+class MemoryResource(BaseModel):
+    """Long-term memory for an agent."""
+
+    agent_name: str
+    content: str  # Memory content in markdown format
+    format: str = "markdown"
+    metadata: Dict[str, Any] = Field(default_factory=dict)

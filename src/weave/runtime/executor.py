@@ -11,6 +11,7 @@ from rich.progress import Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
 
 from ..core.graph import DependencyGraph
 from ..core.models import Agent, WeaveConfig
+from ..core.memory import MemoryManager
 from .llm_executor import LLMExecutor
 
 
@@ -82,10 +83,11 @@ class Executor:
                 agent_name=None,
             )
 
-        # Initialize LLM executor with session
+        # Initialize LLM executor with session (memory manager will be set per agent)
         self.llm_executor = LLMExecutor(
             console=self.console, verbose=self.verbose, config=self.config, session=self.session
         )
+        self.memory_managers: Dict[str, MemoryManager] = {}
 
         # Initialize systems
         self._initialize_tools()
@@ -275,6 +277,14 @@ class Executor:
         if self.state_manager and not dry_run:
             await self._finalize_execution_state(successful, failed, total_time)
 
+        # Save session if enabled
+        if self.session and self.session_id and not dry_run:
+            from ..core.sessions import get_session_manager
+            session_manager = get_session_manager()
+            session_manager.save_session(self.session)
+            if self.verbose:
+                self.console.print(f"[dim]Session saved: {self.session_id}[/dim]")
+
         self.console.print(
             f"\n[bold]Summary:[/bold] {successful} succeeded, {failed} failed"
         )
@@ -331,6 +341,23 @@ class Executor:
                 status="success",
                 tokens_used=0,
             )
+
+        # Setup memory manager for this agent if configured
+        memory_manager = None
+        if agent.memory:
+            if agent_name not in self.memory_managers:
+                memory_manager = MemoryManager(
+                    agent_name=agent_name,
+                    strategy=agent.memory.type,
+                    max_messages=agent.memory.max_messages,
+                    persist=agent.memory.persist,
+                )
+                self.memory_managers[agent_name] = memory_manager
+            else:
+                memory_manager = self.memory_managers[agent_name]
+
+            # Set memory manager on LLM executor
+            self.llm_executor.memory_manager = memory_manager
 
         # Build execution context
         context = {}

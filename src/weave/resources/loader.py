@@ -13,6 +13,7 @@ from .models import (
     Rule,
     AgentBehavior,
     SubAgentPrompt,
+    MemoryResource,
     ResourceType,
 )
 
@@ -50,6 +51,7 @@ class ResourceLoader:
         self.load_rules()
         self.load_behaviors()
         self.load_sub_agents()
+        self.load_memories()
 
     def load_system_prompts(self, path: Optional[Path] = None) -> Dict[str, SystemPrompt]:
         """
@@ -235,9 +237,33 @@ class ResourceLoader:
 
         return sub_agents
 
+    def load_memories(self, path: Optional[Path] = None) -> Dict[str, MemoryResource]:
+        """
+        Load agent memories from markdown files.
+
+        Args:
+            path: Directory containing memory files (default: .weave/memory/)
+
+        Returns:
+            Dictionary of agent name to MemoryResource
+        """
+        memory_path = path or self.base_path / "memory"
+        if not memory_path.exists():
+            return {}
+
+        memories = {}
+        # Load markdown memory files (agent_name_memory.md format)
+        for file_path in memory_path.glob("*_memory.md"):
+            memory = self._load_memory_file(file_path)
+            if memory:
+                memories[memory.agent_name] = memory
+                self._resources[ResourceType.MEMORY][memory.agent_name] = memory
+
+        return memories
+
     def get_resource(
         self, resource_type: ResourceType, name: str
-    ) -> Optional[Union[SystemPrompt, Skill, Recipe, KnowledgeBase, Rule, AgentBehavior]]:
+    ) -> Optional[Union[SystemPrompt, Skill, Recipe, KnowledgeBase, Rule, AgentBehavior, MemoryResource]]:
         """
         Get a specific resource by type and name.
 
@@ -326,6 +352,24 @@ class ResourceLoader:
             print(f"Error loading {model_class.__name__} from {file_path}: {e}")
             return None
 
+    def _load_memory_file(self, file_path: Path) -> Optional[MemoryResource]:
+        """Load agent memory from a markdown file."""
+        try:
+            content = file_path.read_text()
+
+            # Extract agent name from filename (e.g., "agent1_memory.md" -> "agent1")
+            agent_name = file_path.stem.replace("_memory", "")
+
+            return MemoryResource(
+                agent_name=agent_name,
+                content=content,
+                format="markdown",
+                metadata={"file_path": str(file_path)},
+            )
+        except Exception as e:
+            print(f"Error loading memory file {file_path}: {e}")
+            return None
+
     def create_default_structure(self) -> None:
         """Create default directory structure for resources."""
         directories = [
@@ -336,6 +380,7 @@ class ResourceLoader:
             self.base_path / "rules",
             self.base_path / "behaviors",
             self.base_path / "sub_agents",
+            self.base_path / "memory",
         ]
 
         for directory in directories:

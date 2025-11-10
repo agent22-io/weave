@@ -746,7 +746,6 @@ def dev(
             def __init__(self, config_path, weave_name):
                 self.config_path = config_path
                 self.weave_name = weave_name
-                self. = 
                 self.last_run = 0
 
             def on_modified(self, event):
@@ -759,7 +758,7 @@ def dev(
                     self.last_run = now
 
                     console.print("\n[yellow]📝 Config changed, reloading...[/yellow]\n")
-                    run_weave(self.config_path, self.weave_name, self.)
+                    run_weave(self.config_path, self.weave_name)
 
         def run_weave(config_path, weave_name_override):
             try:
@@ -780,13 +779,9 @@ def dev(
                 graph.build(weave_name)
                 graph.validate()
 
-                if :
-                    from ..runtime.executor import Executor
-                    executor = Executor(console=console, verbose=True, config=weave_config)
-                    asyncio.run(executor.execute_flow(graph, weave_name, dry_run=False))
-                else:
-                    executor = Executor(console=console, verbose=True, config=weave_config)
-                    executor.execute_flow(graph, weave_name, dry_run=False)
+                from ..runtime.executor import Executor
+                executor = Executor(console=console, verbose=True, config=weave_config)
+                asyncio.run(executor.execute_flow(graph, weave_name, dry_run=False))
 
             except Exception as e:
                 console.print(f"[red]Error: {e}[/red]")
@@ -944,7 +939,7 @@ def run(
         import asyncio
         from ..runtime.llm_executor import LLMExecutor
         from ..core.sessions import ConversationSession
-        from ..core.models import Agent, LLMConfig
+        from ..core.models import Agent, ModelConfig
         import uuid
 
         console.print("\n[bold cyan]🤖 Weave Agentic Chat[/bold cyan]")
@@ -976,7 +971,7 @@ def run(
                 name="chat",
                 model=model,
                 prompt="You are a helpful AI assistant. Provide concise, accurate responses.",
-                llm_config=LLMConfig(temperature=0.7, max_tokens=2000)
+                llm_config=ModelConfig(temperature=0.7, max_tokens=2000)
             )
 
         # Create session

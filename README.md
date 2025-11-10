@@ -1,70 +1,63 @@
 # 🧵 Weave
 
-**Create and deploy AI agents in minutes, not months**
+**Declarative AI agent orchestration framework**
 
-Weave is a declarative framework for building and composing interoperable AI agents. Define workflows in simple YAML, compose agents that work together seamlessly, and deploy to production with a single command.
+Weave is a framework for building and composing AI agents. Define multi-agent workflows in simple YAML, with automatic dependency resolution and real LLM execution.
 
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ## ✨ Why Weave?
 
-- ⚡ **Fast** - Go from idea to deployed agent in minutes, not months
-- 🔗 **Interoperable** - Agents work together seamlessly through declarative composition
-- 🎯 **Simple** - Clean YAML configuration, no complex code required
-- 🚀 **Production-Ready** - Deploy to AWS, GCP, or Docker with one command
-- 🔧 **Extensible** - Custom tools, plugins, and MCP integration
-- 📊 **Observable** - Track execution, prompts, outputs, and token usage
+- ⚡ **Fast** - Go from idea to working agent workflow quickly
+- 🔗 **Interoperable** - Agents work together through declarative composition
+- 🎯 **Simple** - Clean YAML configuration
+- 🔧 **Extensible** - Custom tools and plugins
+- 📊 **Observable** - Track execution, outputs, and token usage
 
 ## ✨ Key Features
 
-- **Declarative YAML** - Define agents and workflows in clean configuration
+- **Declarative YAML** - Define agents and workflows in configuration
 - **Automatic Orchestration** - Smart dependency resolution and execution ordering
-- **Multiple LLM Providers** - OpenAI, Anthropic, and more
-- **Tool Calling** - Built-in and custom tools with JSON schema validation
+- **Real LLM Integration** - OpenAI and Anthropic API support
+- **Tool Calling** - 9 built-in tools + custom tool support
+- **Plugin System** - Built-in plugins for web search, data processing, formatting
 - **MCP Integration** - Connect to Model Context Protocol servers
-- **Cloud Deployment** - Deploy to AWS Lambda, GCP Cloud Functions, or Docker
 - **Development Mode** - Interactive workflow development with auto-reload
 - **Resource Management** - Organize prompts, skills, and knowledge bases
 
 ## 📦 Installation
 
-### Quick Install (Recommended)
+### From Source
 
 ```bash
-# One-command installation with interactive setup
-curl -fsSL https://weave.dev/install.sh | bash
-
-# Then run the setup wizard
-weave setup
+git clone https://github.com/weave/weave-cli.git
+cd weave-cli
+pip install -e .
 ```
 
-
-### Post-Install Setup
-
-After installation, run the interactive setup wizard:
+### With Optional Features
 
 ```bash
-weave setup
+# Install with LLM support
+pip install -e ".[llm]"
+
+# Install with web search
+pip install -e ".[web]"
+
+# Install everything
+pip install -e ".[all]"
 ```
 
-This will:
-- ✓ Configure API keys for LLM providers
-- ✓ Install shell completion (bash/zsh/fish)
-- ✓ Create example project
-- ✓ Set up configuration directory
-
-Or use individual setup commands:
+### Setup API Keys
 
 ```bash
-# Check installation status
-weave doctor
+# Set environment variables for LLM APIs
+export OPENAI_API_KEY="your-key-here"
+export ANTHROPIC_API_KEY="your-key-here"
 
-# Install shell completion only
-weave completion bash --install
-
-# Create example project
-weave init
+# Optional: OpenRouter for multi-model access
+export OPENROUTER_API_KEY="your-key-here"
 ```
 
 ## 🚀 Quick Start
@@ -75,7 +68,7 @@ weave init
 weave init
 ```
 
-This creates a `.weave.yaml` file with example agents:
+This creates a `.weave.yaml` file:
 
 ```yaml
 version: "1.0"
@@ -83,46 +76,27 @@ version: "1.0"
 agents:
   researcher:
     model: "gpt-4"
-    tools: [web_search, summarizer]
+    tools: [web_search]
     outputs: "research_summary"
 
   writer:
     model: "claude-3-opus"
-    tools: [text_generator]
-    inputs: "researcher"  # Depends on researcher
+    inputs: "researcher"
     outputs: "draft_article"
-
-  editor:
-    model: "gpt-4"
-    tools: [grammar_checker]
-    inputs: "writer"
-    outputs: "final_article"
 
 weaves:
   content_pipeline:
-    description: "Research, write, and edit content"
-    agents: [researcher, writer, editor]
+    description: "Research and write content"
+    agents: [researcher, writer]
 ```
 
-### 2. Run agent
-
+### 2. Run Your Workflow
 
 ```bash
-
-# Or use development mode with auto-reload
-weave dev --real --watch
+weave apply
 ```
 
-**Inspect completed runs:**
-```bash
-# List recent runs
-weave state --list
-
-# Inspect specific run with detailed metrics
-weave inspect <run-id>
-```
-
-### 3. Review workflow
+### 3. Review Execution Plan
 
 ```bash
 weave plan
@@ -132,378 +106,237 @@ Output:
 ```
 📊 Execution Plan: content_pipeline
 
-┏━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━┓
-┃ Order ┃ Agent      ┃ Model         ┃ Tools      ┃ Inputs     ┃
-┡━━━━━━━╇━━━━━━━━━━━━╇━━━━━━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━━━━━━━┩
-│ 1     │ researcher │ gpt-4         │ web_search │ -          │
-│ 2     │ writer     │ claude-3-opus │ text_gen.. │ researcher │
-│ 3     │ editor     │ gpt-4         │ grammar_.. │ writer     │
-└───────┴────────────┴───────────────┴────────────┴────────────┘
+Order  Agent       Model         Inputs      
+1      researcher  gpt-4         -           
+2      writer      claude-3-opus researcher  
 
 Execution graph:
-  researcher → writer → editor
+  researcher → writer
 
-3 agents will be created.
+2 agents will be executed.
 ```
 
-### 4. Create Workflow
-
-```bash
-weave apply
-```
-
-Output:
-```
-🚀 Applying weave: content_pipeline
-
-Executing agents in order:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-[1/3] researcher (gpt-4)
-  ⚙️  Running with tools: web_search, summarizer
-  ⏱️  Execution time: 1.2s
-  ✅ Output: research_summary
-
-[2/3] writer (claude-3-opus)
-  📥 Input from: researcher
-  ⚙️  Running with tools: text_generator
-  ⏱️  Execution time: 2.1s
-  ✅ Output: draft_article
-
-[3/3] editor (gpt-4)
-  📥 Input from: writer
-  ⚙️  Running with tools: grammar_checker
-  ⏱️  Execution time: 0.9s
-  ✅ Output: final_article
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-✨ Apply complete!
-
-Summary:
-  Agents executed: 3
-  Total time: 4.2s
-  Status: SUCCESS
-```
-### Cloud Deployment
-
-Deploy your workflows to production:
-
-```bash
-# Deploy to AWS Lambda
-weave deploy --name my-weave --provider aws --region us-east-1
-
-# Deploy to GCP Cloud Functions
-weave deploy --name my-weave --provider gcp --region us-central1
-
-# Deploy to Docker
-weave deploy --name my-weave --provider docker
-
-# List all deployments
-weave deployments
-
-# Destroy deployment
-weave undeploy my-weave --provider aws
-```
-
-**What you get:**
-- ☁️ Serverless execution on AWS/GCP
-- 🔗 HTTP endpoint for invoking your workflow
-- 🔐 Automatic credential management
-- 📊 Deployment status tracking
-
-### 7. Visualize the Dependency Graph
+### 4. Visualize Dependencies
 
 ```bash
 weave graph
 ```
 
-Output:
-```
-       ┌─────────────┐
-       │  researcher │
-       │    gpt-4    │
-       └──────┬──────┘
-              │
-              ▼
-       ┌─────────────┐
-       │   writer    │
-       │ claude-3-.. │
-       └──────┬──────┘
-              │
-              ▼
-       ┌─────────────┐
-       │   editor    │
-       │    gpt-4    │
-       └─────────────┘
-```
+## 🛠️ Built-in Tools
 
-Or generate Mermaid diagrams:
+Weave includes 9 production-ready tools:
 
-```bash
-weave graph --format mermaid --output graph.mmd
-```
+**Math & Text:**
+- `calculator` - Evaluate mathematical expressions
+- `text_length` - Count characters, words, lines
+- `string_formatter` - Template-based string formatting
 
-## 📖 Documentation
+**Data Processing:**
+- `json_validator` - Validate and parse JSON
+- `list_operations` - List operations (sort, filter, etc.)
 
-### Commands
+**Web & HTTP:**
+- `http_request` - Make HTTP requests (GET, POST, PUT, DELETE)
+- `web_search` - Search the web (DuckDuckGo)
 
-#### `weave init`
+**File Operations:**
+- `file_read` - Read file contents
+- `file_write` - Write content to files
+- `file_list` - List directory contents
 
-Initialize a new project with example configuration.
+### Using Tools
 
-**Options:**
-- `--force, -f` - Overwrite existing config
-- `--template, -t` - Template to use (default: basic)
-
-```bash
-weave init
-weave init --force --template research
+```yaml
+agents:
+  data_agent:
+    model: "gpt-4"
+    tools:
+      - http_request
+      - file_read
+      - file_write
 ```
 
-#### `weave plan`
+## 🔌 Plugins
 
-Preview execution plan without running agents.
+Built-in plugins for extended functionality:
 
-**Options:**
-- `--config, -c` - Config file path (default: .weave.yaml)
-- `--weave, -w` - Specific weave to plan
-
-```bash
-weave plan
-weave plan --config custom.yaml
-weave plan --weave research_only
-```
-
-#### `weave apply`
-
-Execute the agent workflow.
-
-**Options:**
-- `--config, -c` - Config file path
-- `--weave, -w` - Specific weave to execute
-- `--dry-run` - Show what would execute without running
-- `--verbose, -v` - Verbose output
-
-```bash
-weave apply
-weave apply --dry-run
-weave apply --weave content_pipeline --verbose
-```
-
-#### `weave graph`
-
-Visualize dependency graph.
-
-**Options:**
-- `--config, -c` - Config file path
-- `--weave, -w` - Specific weave to visualize
-- `--format, -f` - Output format (ascii, mermaid)
-- `--output, -o` - Save to file
-
-```bash
-weave graph
-weave graph --format mermaid
-weave graph --format mermaid --output pipeline.mmd
-```
-
-#### `weave tools`
-
-List and inspect available tools for agents.
-
-**Options:**
-- `--category, -c` - Filter by category (math, text, data, web, etc.)
-- `--tags, -t` - Filter by tags (comma-separated)
-- `--schema, -s` - Show JSON schema for a specific tool
-
-```bash
-# List all tools
-weave tools
-
-# Filter by category
-weave tools --category math
-
-# View tool schema
-weave tools --schema calculator
-```
-
-Built-in tools include:
-- **calculator** - Evaluate mathematical expressions
-- **text_length** - Count characters, words, and lines
-- **json_validator** - Validate and parse JSON
-- **string_formatter** - Format strings with templates
-- **list_operations** - Perform list operations
-
-See [Tool Calling Guide](docs/guides/tool-calling.md) for details.
-
-#### `weave mcp`
-
-Manage MCP (Model Context Protocol) servers.
-
-**Options:**
-- `--list, -l` - List configured MCP servers
-- `--init` - Create example MCP configuration
-- `--add <name>` - Add a new MCP server
-- `--command <cmd>` - Command to start server (used with --add)
-- `--remove <name>` - Remove an MCP server
-- `--server-tools <name>` - List tools from specific server
-
-```bash
-# Initialize MCP configuration
-weave mcp --init
-
-# List servers
-weave mcp
-
-# View tools from server
-weave mcp --server-tools filesystem
-
-# Add custom server
-weave mcp --add myserver --command "python server.py"
-```
-
-See [MCP Integration Guide](docs/guides/mcp.md) for details.
-
-#### `weave plugins`
-
-List and manage plugins for extending agent capabilities.
-
-**Options:**
-- `--category, -c` - Filter by category (data_collection, web, nlp, etc.)
-
-```bash
-weave plugins
-weave plugins --category web
-```
-
-Built-in plugins include:
-- **web_search** - Search the web for information
-- **summarizer** - Summarize text content
+- **web_search** - Real web search via DuckDuckGo API
+- **openrouter** - Unified LLM access (100+ models)
 - **data_cleaner** - Clean and normalize data
 - **json_parser** - Parse and validate JSON
-- **markdown_formatter** - Format content as Markdown
+- **markdown_formatter** - Format markdown content
 
-See [Plugins Guide](docs/guides/plugins.md) for creating custom plugins.
+### Using Plugins
 
-#### `weave resources`
+Plugins are automatically loaded and available to agents:
 
-List and manage agent resources (prompts, skills, knowledge bases).
+```yaml
+agents:
+  agent1:
+    model: "gpt-4"
+    plugins:
+      - web_search
+      - markdown_formatter
+```
 
-**Options:**
-- `--type, -t` - Filter by type (prompt, skill, recipe, knowledge, rule, behavior, sub_agent)
-- `--path, -p` - Resource directory path (default: .weave)
-- `--create` - Create example resource structure
+## 🔗 MCP Integration
+
+Connect to Model Context Protocol servers for extended tool access:
+
+```yaml
+mcp_servers:
+  filesystem:
+    command: "npx"
+    args: ["-y", "@modelcontextprotocol/server-filesystem", "/path/to/dir"]
+    enabled: true
+    
+  github:
+    command: "npx"
+    args: ["-y", "@modelcontextprotocol/server-github"]
+    enabled: true
+    env:
+      GITHUB_TOKEN: "${GITHUB_TOKEN}"
+```
+
+List MCP servers and tools:
 
 ```bash
-# List all resources
-weave resources
-
-# Filter by type
-weave resources --type skill
-
-# Create example structure
-weave resources --create
+weave mcp --list
+weave mcp --server-tools filesystem
 ```
 
-Resources are organized in `.weave/` directory:
-```
-.weave/
-├── prompts/         # System prompts with YAML frontmatter
-├── skills/          # Agent skills (YAML)
-├── recipes/         # Workflow templates
-├── knowledge/       # Knowledge bases (Markdown, text)
-├── rules/           # Agent constraints
-├── behaviors/       # Behavioral guidelines
-└── sub_agents/      # Nested agent configurations
-```
+## 📖 Commands
 
-See [Resources Guide](docs/guides/resources.md) for details.
+### Core Commands
 
-### Configuration
+- `weave init` - Initialize new project
+- `weave plan` - Preview execution plan
+- `weave apply` - Execute workflow
+- `weave graph` - Visualize dependencies
 
-#### Agent Definition
+### Development
+
+- `weave dev --watch` - Development mode with auto-reload
+- `weave state --list` - List execution runs
+- `weave inspect <run-id>` - Inspect run details
+
+### Tools & Plugins
+
+- `weave tools` - List available tools
+- `weave tools --schema <tool-name>` - View tool schema
+- `weave plugins` - List plugins
+- `weave mcp` - Manage MCP servers
+
+### Setup
+
+- `weave setup` - Interactive setup wizard
+- `weave doctor` - Check installation
+- `weave completion bash --install` - Install shell completion
+
+## 📂 Configuration
+
+### Agent Definition
 
 ```yaml
 agents:
   agent_name:
-    model: "model-name"              # Required: Model to use
-    tools: [tool1, tool2]            # Optional: Tools available
-    inputs: "other_agent"            # Optional: Input dependency
-    outputs: "output_key"            # Optional: Output key name
-    config:                          # Optional: Model config
+    model: "model-name"              # Required
+    tools: [tool1, tool2]            # Optional
+    plugins: [plugin1]               # Optional
+    inputs: "other_agent"            # Optional: dependency
+    outputs: "output_key"            # Optional: output name
+    model_config:                    # Optional: LLM config
       temperature: 0.7
       max_tokens: 1000
-      custom_param: "value"
+    memory:                          # Optional: conversation memory
+      type: "buffer"
+      max_messages: 100
+    storage:                         # Optional: output storage
+      save_outputs: true
+```
+
+### Custom Tools
+
+```yaml
+tools:
+  custom_tool:
+    description: "My custom tool"
+    category: "custom"
+    parameters:
+      param1:
+        type: "string"
+        description: "Parameter description"
+        required: true
+```
+
+## 📊 Resource Management
+
+Organize agent resources in `.weave/` directory:
+
+```
+.weave/
+├── prompts/         # System prompts (YAML + markdown)
+├── skills/          # Agent skills (YAML)
+├── recipes/         # Workflow templates
+├── knowledge/       # Knowledge bases
+├── rules/           # Agent constraints
+├── behaviors/       # Behavioral guidelines
+└── sub_agents/      # Nested agents
+```
+
+Create resource structure:
+
+```bash
+weave resources --create
 ```
 
 ## 📂 Examples
 
-The `examples/` directory contains production-ready examples for common use cases:
+Complete examples with resources:
 
-### Complete Examples (with resources)
-
-- **[coding-agent-example/](examples/coding-agent-example/)** - AI-powered software development workflow
-  - Requirements analysis, code generation, testing, review, and documentation
-  - Complete with prompts, skills, and knowledge bases
-
-- **[content-creation-example/](examples/content-creation-example/)** - Blog posts and marketing content
-  - Research → Write → Edit pipeline with SEO optimization
-
-- **[research-assistant-example/](examples/research-assistant-example/)** - Research and analysis
-  - Literature review, data collection, synthesis, and peer review
-
-- **[customer-support-example/](examples/customer-support-example/)** - Automated support
-  - Ticket classification, KB search, response generation, and quality checking
-
+- **[basic.weave.yaml](examples/basic.weave.yaml)** - Simple pipeline
+- **[coding-agent-example/](examples/coding-agent-example/)** - Software development
+- **[content-creation-example/](examples/content-creation-example/)** - Blog posts
+- **[research-assistant-example/](examples/research-assistant-example/)** - Research & analysis
+- **[customer-support-example/](examples/customer-support-example/)** - Support automation
 - **[data-processing-example/](examples/data-processing-example/)** - ETL pipelines
-  - Extract, transform, analyze, and report on data
-
-### Getting Started
-
-- **[basic.weave.yaml](examples/basic.weave.yaml)** - Simplest possible example
-- **[resources_example/](examples/resources_example/)** - Resource system template
-
-Each example includes a README with usage instructions and customization options.
 
 ## 🏗️ Architecture
 
 ```
-┌─────────────────────────────────────────┐
-│            CLI Layer (Typer)            │
-│  Commands: init, plan, apply, graph     │
-└────────────────┬────────────────────────┘
-                 │
-┌────────────────▼────────────────────────┐
-│         Parser Layer (PyYAML)           │
-│  YAML loading + env substitution        │
-└────────────────┬────────────────────────┘
-                 │
-┌────────────────▼────────────────────────┐
-│      Core Layer (Pydantic + NetworkX)   │
-│  Validation + dependency graph          │
-└────────────────┬────────────────────────┘
-                 │
-┌────────────────▼────────────────────────┐
-│        Runtime Layer (Executor)         │
-│  Mock execution + hook system           │
-└─────────────────────────────────────────┘
+┌─────────────────────────────────┐
+│       CLI Layer (Typer)         │
+│  Commands: init, plan, apply    │
+└────────────┬────────────────────┘
+             │
+┌────────────▼────────────────────┐
+│    Parser Layer (PyYAML)        │
+│  YAML loading + env substitution│
+└────────────┬────────────────────┘
+             │
+┌────────────▼────────────────────┐
+│  Core Layer (Pydantic+NetworkX) │
+│  Validation + dependency graph  │
+└────────────┬────────────────────┘
+             │
+┌────────────▼────────────────────┐
+│     Executor (Real LLMs)        │
+│  OpenAI + Anthropic + Tools     │
+└─────────────────────────────────┘
 ```
 
 ### Key Components
 
-- **CLI** (`src/weave/cli/`) - Typer commands and Rich output
+- **CLI** (`src/weave/cli/`) - Typer commands with Rich output
 - **Parser** (`src/weave/parser/`) - YAML parsing and env substitution
 - **Core** (`src/weave/core/`) - Pydantic models and dependency graph
-- **Runtime** (`src/weave/runtime/`) - Execution engine with hooks
-- **Tools** (`src/weave/tools/`) - Tool calling system with MCP integration
-- **Plugins** (`src/weave/plugins/`) - Plugin system with built-in and custom plugins
-- **Resources** (`src/weave/resources/`) - File-based resource loading for prompts, skills, etc.
+- **Executor** (`src/weave/runtime/`) - Real LLM execution
+- **Tools** (`src/weave/tools/`) - Tool calling system + MCP
+- **Plugins** (`src/weave/plugins/`) - Plugin system
 
 ## 🤝 Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-### Development Setup
+Contributions welcome! See development setup:
 
 ```bash
 # Clone and install dev dependencies
@@ -521,6 +354,23 @@ ruff check src/ tests/
 # Type checking
 mypy src/
 ```
+
+## 🛣️ Roadmap
+
+### Current: v0.1.0
+- ✅ Real LLM execution (OpenAI, Anthropic)
+- ✅ 9 built-in tools
+- ✅ MCP protocol integration
+- ✅ Plugin system
+- ✅ Dependency graphs
+- ✅ Development mode
+
+### Planned: v0.2.0
+- [ ] More LLM providers (Google, Cohere)
+- [ ] Advanced memory systems
+- [ ] Parallel agent execution
+- [ ] Web UI for monitoring
+- [ ] Cloud deployment (AWS, GCP)
 
 ## 📄 License
 

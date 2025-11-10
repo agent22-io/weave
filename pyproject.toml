@@ -71,28 +71,15 @@ watch = [
     "watchdog>=3.0.0",
 ]
 
-# AWS deployment support
-aws = [
-    "boto3>=1.28.0",
+# Web search and HTTP requests
+web = [
+    "requests>=2.31.0",
+    "beautifulsoup4>=4.12.0",
 ]
 
-# GCP deployment support
-gcp = [
-    "google-cloud-functions>=1.13.0",
-    "google-cloud-run>=0.10.0",
-]
-
-# Docker deployment support
-docker = [
-    "docker>=6.1.0",
-]
-
-# All deployment providers
-deploy = [
-    "boto3>=1.28.0",
-    "google-cloud-functions>=1.13.0",
-    "google-cloud-run>=0.10.0",
-    "docker>=6.1.0",
+# MCP protocol support
+mcp = [
+    "mcp>=0.1.0",
 ]
 
 # All optional features
@@ -100,10 +87,9 @@ all = [
     "openai>=1.0.0",
     "anthropic>=0.18.0",
     "watchdog>=3.0.0",
-    "boto3>=1.28.0",
-    "google-cloud-functions>=1.13.0",
-    "google-cloud-run>=0.10.0",
-    "docker>=6.1.0",
+    "requests>=2.31.0",
+    "beautifulsoup4>=4.12.0",
+    "mcp>=0.1.0",
 ]
 
 [project.scripts]

@@ -15,7 +15,7 @@ from ..plugins.manager import PluginManager
 from ..plugins.base import PluginCategory
 from ..resources.loader import ResourceLoader
 from ..resources.models import ResourceType
-from ..runtime.executor import MockExecutor
+from ..runtime.executor import Executor
 from .output import WeaveOutput
 
 app = typer.Typer(
@@ -205,17 +205,15 @@ def apply(
     verbose: bool = typer.Option(
         False, "--verbose", "-v", help="Verbose output"
     ),
-    real: bool = typer.Option(
-        False, "--real", help="Use real LLM execution (requires API keys)"
-    ),
 ) -> None:
     """
-    Execute the agent flow.
+    Execute the agent flow with real LLM API calls.
 
-    By default, uses mock execution for testing.
-    Use --real for actual LLM API calls (requires API keys).
+    Requires API keys: OPENAI_API_KEY or ANTHROPIC_API_KEY.
     """
     try:
+        import asyncio
+
         # Load config
         console.print(f"\n📋 Loading configuration from [cyan]{config}[/cyan]...")
         weave_config = load_config_from_path(config)
@@ -239,20 +237,13 @@ def apply(
         graph.build(weave_name)
         graph.validate()
 
-        # Choose executor based on --real flag
-        if real:
-            from ..runtime.real_executor import RealExecutor
-            import asyncio
-
-            console.print("[bold green]🚀 Real execution mode[/bold green]")
+        # Execute with real LLMs
+        console.print("[bold green]🚀 Executing workflow[/bold green]")
+        if not dry_run:
             console.print("[dim]Using actual LLM APIs (costs may apply)[/dim]\n")
 
-            executor = RealExecutor(console=console, verbose=verbose, config=weave_config)
-            summary = asyncio.run(executor.execute_flow(graph, weave_name, dry_run=dry_run))
-        else:
-            console.print("[dim]Mock execution mode (use --real for actual LLM calls)[/dim]\n")
-            executor = MockExecutor(console=console, verbose=verbose, config=weave_config)
-            summary = executor.execute_flow(graph, weave_name, dry_run=dry_run)
+        executor = Executor(console=console, verbose=verbose, config=weave_config)
+        summary = asyncio.run(executor.execute_flow(graph, weave_name, dry_run=dry_run))
 
         # Exit with error if any failed
         if summary.failed > 0:
@@ -817,10 +808,10 @@ def dev(
         from watchdog.events import FileSystemEventHandler
 
         class ConfigChangeHandler(FileSystemEventHandler):
-            def __init__(self, config_path, weave_name, real_mode):
+            def __init__(self, config_path, weave_name):
                 self.config_path = config_path
                 self.weave_name = weave_name
-                self.real_mode = real_mode
+                self. = 
                 self.last_run = 0
 
             def on_modified(self, event):
@@ -833,9 +824,9 @@ def dev(
                     self.last_run = now
 
                     console.print("\n[yellow]📝 Config changed, reloading...[/yellow]\n")
-                    run_weave(self.config_path, self.weave_name, self.real_mode)
+                    run_weave(self.config_path, self.weave_name, self.)
 
-        def run_weave(config_path, weave_name_override, real_mode):
+        def run_weave(config_path, weave_name_override):
             try:
                 # Load config
                 weave_config = load_config_from_path(config_path)
@@ -854,12 +845,12 @@ def dev(
                 graph.build(weave_name)
                 graph.validate()
 
-                if real_mode:
-                    from ..runtime.real_executor import RealExecutor
-                    executor = RealExecutor(console=console, verbose=True, config=weave_config)
+                if :
+                    from ..runtime.executor import Executor
+                    executor = Executor(console=console, verbose=True, config=weave_config)
                     asyncio.run(executor.execute_flow(graph, weave_name, dry_run=False))
                 else:
-                    executor = MockExecutor(console=console, verbose=True, config=weave_config)
+                    executor = Executor(console=console, verbose=True, config=weave_config)
                     executor.execute_flow(graph, weave_name, dry_run=False)
 
             except Exception as e:
@@ -867,12 +858,12 @@ def dev(
 
         # Initial run
         console.print("[bold cyan]🔧 Development Mode[/bold cyan]\n")
-        run_weave(config, weave, real)
+        run_weave(config, weave)
 
         if watch:
             console.print("\n[dim]👀 Watching for changes... (Ctrl+C to stop)[/dim]\n")
 
-            event_handler = ConfigChangeHandler(config, weave, real)
+            event_handler = ConfigChangeHandler(config, weave)
             observer = Observer()
             observer.schedule(event_handler, str(config.parent), recursive=False)
             observer.start()
@@ -987,167 +978,6 @@ def inspect(
             console.print()
 
         console.print("[dim]Tip: Use --no-outputs to hide output details[/dim]\n")
-
-    except Exception as e:
-        output.print_error(e)
-        raise typer.Exit(1)
-
-
-@app.command()
-def deploy(
-    config: Path = typer.Option(".weave.yaml", "--config", "-c", help="Path to config file"),
-    name: str = typer.Option(..., "--name", "-n", help="Deployment name"),
-    provider: str = typer.Option(..., "--provider", "-p", help="Provider (aws, gcp, docker)"),
-    deploy_type: Optional[str] = typer.Option(None, "--type", "-t", help="Deployment type (lambda, function, etc)"),
-    region: Optional[str] = typer.Option(None, "--region", "-r", help="Cloud region"),
-    push_only: bool = typer.Option(False, "--push-only", help="Build/push only, don't deploy"),
-    verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose output"),
-) -> None:
-    """
-    Deploy Weave to cloud infrastructure.
-
-    Deploy your Weave workflows to AWS Lambda, GCP Cloud Functions, or Docker containers.
-    """
-    try:
-        from ..deploy.manager import DeploymentManager
-        from ..deploy.provider import DeploymentConfig
-
-        # Load Weave config
-        weave_config = load_config_from_path(config)
-
-        # Build deployment config
-        deploy_config = DeploymentConfig(
-            name=name,
-            provider=provider,
-            region=region,
-            config_file=str(config),
-        )
-
-        # Add deployment type if specified
-        if deploy_type:
-            deploy_config.config["type"] = deploy_type
-
-        # Add push-only flag for Docker
-        if push_only and provider == "docker":
-            deploy_config.config["run"] = False
-
-        # Initialize deployment manager
-        manager = DeploymentManager(console=console, verbose=verbose)
-
-        # Deploy
-        info = manager.deploy(deploy_config)
-
-        console.print(f"\n[bold green]Deployment complete![/bold green]")
-        console.print(f"[bold]Name:[/bold] {info.name}")
-        console.print(f"[bold]Provider:[/bold] {info.provider}")
-        console.print(f"[bold]Status:[/bold] {info.status.value}")
-
-        if info.endpoint:
-            console.print(f"[bold]Endpoint:[/bold] {info.endpoint}")
-
-        if info.region:
-            console.print(f"[bold]Region:[/bold] {info.region}")
-
-        console.print()
-
-    except Exception as e:
-        output.print_error(e)
-        raise typer.Exit(1)
-
-
-@app.command()
-def deployments(
-    provider: Optional[str] = typer.Option(None, "--provider", "-p", help="Filter by provider"),
-    verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose output"),
-) -> None:
-    """
-    List all deployments across providers.
-
-    Shows deployed Weave workflows in AWS, GCP, and Docker.
-    """
-    try:
-        from ..deploy.manager import DeploymentManager
-        from rich.table import Table
-
-        # Initialize deployment manager
-        manager = DeploymentManager(console=console, verbose=verbose)
-
-        # List deployments
-        all_deployments = manager.list_deployments(provider_name=provider)
-
-        if not all_deployments:
-            console.print("[yellow]No deployments found[/yellow]\n")
-            return
-
-        # Create table
-        table = Table(title="Deployments", show_header=True, header_style="bold magenta")
-        table.add_column("Name", style="cyan")
-        table.add_column("Provider", style="green")
-        table.add_column("Status", style="yellow")
-        table.add_column("Region", style="white")
-        table.add_column("Endpoint", style="blue", no_wrap=False)
-
-        for provider_name, deployments in all_deployments.items():
-            for dep in deployments:
-                status_emoji = {
-                    "active": "✓",
-                    "deploying": "⏳",
-                    "failed": "✗",
-                    "pending": "⏸",
-                }.get(dep.status.value, "?")
-
-                endpoint = dep.endpoint[:50] + "..." if dep.endpoint and len(dep.endpoint) > 50 else dep.endpoint or "-"
-
-                table.add_row(
-                    dep.name,
-                    provider_name,
-                    f"{status_emoji} {dep.status.value}",
-                    dep.region or "-",
-                    endpoint,
-                )
-
-        console.print("\n")
-        console.print(table)
-        console.print(f"\n[bold]Total deployments:[/bold] {sum(len(d) for d in all_deployments.values())}\n")
-
-    except Exception as e:
-        output.print_error(e)
-        raise typer.Exit(1)
-
-
-@app.command()
-def undeploy(
-    name: str = typer.Argument(..., help="Deployment name"),
-    provider: str = typer.Option(..., "--provider", "-p", help="Provider (aws, gcp, docker)"),
-    force: bool = typer.Option(False, "--force", "-f", help="Force destroy without confirmation"),
-    verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose output"),
-) -> None:
-    """
-    Destroy a deployed Weave instance.
-
-    Removes the deployment from the cloud provider.
-    """
-    try:
-        from ..deploy.manager import DeploymentManager
-
-        # Confirm destruction unless --force
-        if not force:
-            console.print(f"[yellow]⚠️  This will destroy deployment '{name}' on {provider}[/yellow]")
-            confirm = typer.confirm("Are you sure?")
-            if not confirm:
-                console.print("Cancelled.")
-                raise typer.Exit(0)
-
-        # Initialize deployment manager
-        manager = DeploymentManager(console=console, verbose=verbose)
-
-        # Destroy deployment
-        success = manager.destroy(provider, name)
-
-        if success:
-            console.print(f"\n[bold green]✓ Deployment destroyed:[/bold green] {name}\n")
-        else:
-            console.print(f"\n[yellow]⚠️  Could not destroy deployment: {name}[/yellow]\n")
 
     except Exception as e:
         output.print_error(e)

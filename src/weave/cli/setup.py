@@ -234,7 +234,7 @@ def show_next_steps(console: Console) -> None:
     steps.add_row("2.", "View help:")
     steps.add_row("", "[dim]weave --help[/dim]")
     steps.add_row("", "")
-    steps.add_row("3.", "Try an example (mock mode):")
+    steps.add_row("3.", "Try an example:")
     steps.add_row("", "[dim]weave apply[/dim]")
     steps.add_row("", "")
     steps.add_row("4.", "Run with real LLMs:")

@@ -38,7 +38,7 @@ The Weave CLI has been successfully implemented and is ready for use!
 
 #### **CLI Layer** (`src/weave/cli/`)
 - ✅ Typer-based command framework
-- ✅ Rich output formatting (Terraform-like UX)
+- ✅ Rich output formatting (Professional UX)
 - ✅ Four commands: init, plan, apply, graph
 - ✅ Beautiful tables, progress indicators, colored output
 
@@ -124,7 +124,7 @@ weave/
 - Topological execution order
 
 ### 3. Beautiful CLI
-- Terraform-inspired UX
+- Professional command-line UX
 - Rich tables and progress bars
 - Color-coded output
 - Clear error messages
@@ -187,7 +187,7 @@ weave/
 1. **Modular** - Clear separation: CLI → Parser → Core → Runtime
 2. **Type-Safe** - Pydantic models throughout
 3. **Extensible** - Hook system for v2 features
-4. **User-Friendly** - Terraform-quality UX
+4. **User-Friendly** - Professional-quality UX
 
 ### Code Quality
 - ✅ Type hints throughout

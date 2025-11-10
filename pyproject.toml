@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "weave-cli"
 version = "0.1.0"
-description = "Declarative agent orchestration framework inspired by Terraform"
+description = "Declarative agent orchestration framework"
 readme = "README.md"
 requires-python = ">=3.9"
 authors = [

@@ -1,8 +1,8 @@
 # 🧵 Weave
 
-**Declarative agent orchestration framework inspired by Terraform**
+**Declarative agent orchestration framework**
 
-Weave allows you to define and compose AI agents using YAML configuration files and execute them with a simple, elegant CLI. Think of it as "Terraform for AI agents" — infrastructure-as-code, but for agent workflows.
+Weave allows you to define and compose AI agents using YAML configuration files and execute them with a simple, elegant CLI. Define your agent workflows declaratively — infrastructure-as-code principles, applied to AI agents.
 
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -11,7 +11,7 @@ Weave allows you to define and compose AI agents using YAML configuration files 
 
 - 🎯 **Declarative Configuration** - Define agents and workflows in clean YAML
 - 🔗 **Dependency Management** - Automatic dependency resolution and execution ordering
-- 📊 **Beautiful CLI** - Terraform-like UX with rich terminal output
+- 📊 **Beautiful CLI** - Professional UX with rich terminal output
 - 🔍 **Validation** - Schema validation with clear error messages
 - 🎨 **Visualization** - ASCII and Mermaid graph generation
 - 🪝 **Extensible** - Hook system for custom execution (v2: real LLM calls)
@@ -400,10 +400,7 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 ## 🙏 Acknowledgments
 
-Inspired by:
-- **Terraform** - Declarative infrastructure orchestration
-- **Airflow** - Workflow DAG management
-- **LangChain** - Agent composition patterns
+Inspired by declarative infrastructure tools, workflow DAG managers, and agent composition patterns.
 
 ## 📬 Contact
 

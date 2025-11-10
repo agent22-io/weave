@@ -4,6 +4,7 @@ version: "1.0"
 
 agents:
   # Agent with buffer strategy (keeps system message + recent messages)
+  # Features auto-compact: automatically summarizes old messages when token limit exceeded
   chat_assistant:
     model: "gpt-4"
     prompt: "You are a helpful assistant that remembers context from the conversation."
@@ -12,7 +13,8 @@ agents:
       type: "buffer"           # Buffer strategy: keeps system + recent messages
       max_messages: 20         # Keep last 20 messages
       persist: true            # Save long-term memory to .weave/memory/
-      context_window: 4000     # Context window size in tokens
+      context_window: 4000     # Auto-compact when tokens exceed this limit
+      summarize_after: 30      # Optional: Also auto-compact after N messages
 
   # Agent with sliding window strategy
   data_processor:
@@ -24,6 +26,7 @@ agents:
       type: "sliding_window"   # Sliding window: keeps only last N messages
       max_messages: 10         # Keep last 10 messages
       persist: false           # Don't save to long-term memory
+      context_window: 2000     # Token limit for auto-compact
 
   # Agent with long-term memory persistence
   knowledge_keeper:
@@ -37,7 +40,8 @@ agents:
       type: "buffer"
       max_messages: 50
       persist: true            # Long-term memory will be saved to .weave/memory/knowledge_keeper_memory.md
-      storage_key: "knowledge" # Optional: custom storage key
+      context_window: 8000     # Higher token limit for knowledge agent
+      summarize_after: 100     # Summarize after 100 messages
 
 weaves:
   memory_workflow:

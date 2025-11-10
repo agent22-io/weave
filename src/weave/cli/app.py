@@ -262,75 +262,6 @@ def apply(
 
 
 @app.command()
-def graph(
-    config: Path = typer.Option(
-        ".weave.yaml", "--config", "-c", help="Path to config file"
-    ),
-    weave: Optional[str] = typer.Option(
-        None, "--weave", "-w", help="Specific weave to visualize"
-    ),
-    format: str = typer.Option(
-        "ascii", "--format", "-f", help="Output format (ascii, mermaid)"
-    ),
-    output_file: Optional[Path] = typer.Option(
-        None, "--output", "-o", help="Save to file instead of stdout"
-    ),
-) -> None:
-    """
-    Visualize the dependency graph.
-
-    Shows how agents are connected and their execution order.
-    Supports ASCII art and Mermaid diagram formats.
-    """
-    try:
-        # Load config
-        weave_config = load_config_from_path(config)
-
-        # Determine which weave to visualize
-        if weave:
-            if weave not in weave_config.weaves:
-                available = ", ".join(weave_config.weaves.keys())
-                raise WeaveError(f"Weave '{weave}' not found. Available: {available}")
-            weave_name = weave
-        else:
-            weave_name = list(weave_config.weaves.keys())[0]
-
-        # Build graph
-        dep_graph = DependencyGraph(weave_config)
-        dep_graph.build(weave_name)
-        dep_graph.validate()
-
-        # Generate visualization
-        if format == "ascii":
-            result = dep_graph.to_ascii()
-        elif format == "mermaid":
-            result = dep_graph.to_mermaid()
-        else:
-            raise WeaveError(f"Unknown format: {format}. Use 'ascii' or 'mermaid'")
-
-        # Output
-        if output_file:
-            with open(output_file, "w") as f:
-                f.write(result)
-            console.print(f"\n[green]✅ Graph saved to {output_file}[/green]\n")
-        else:
-            console.print(f"\n📊 Dependency Graph: [bold cyan]{weave_name}[/bold cyan]\n")
-            console.print(result)
-            console.print()
-
-            # Show execution order
-            order = dep_graph.get_execution_order()
-            console.print(f"[bold]Execution order:[/bold] {' → '.join(order)}\n")
-
-    except (ConfigError, GraphError, WeaveError) as e:
-        output.print_error(e)
-        raise typer.Exit(1)
-    except Exception as e:
-        output.print_error(e)
-        raise typer.Exit(1)
-
-
-@app.command()
 def plugins(
     category: Optional[str] = typer.Option(
         None, "--category", "-c", help="Filter by category"
@@ -989,86 +920,115 @@ def inspect(
 
 
 @app.command()
-def setup(
-    skip_keys: bool = typer.Option(False, "--skip-keys", help="Skip API key configuration"),
-    skip_completion: bool = typer.Option(False, "--skip-completion", help="Skip shell completion"),
-    skip_example: bool = typer.Option(False, "--skip-example", help="Skip example project"),
+def run(
+    agent: Optional[str] = typer.Option(
+        None, "--agent", "-a", help="Agent name from config to chat with"
+    ),
+    model: str = typer.Option(
+        "gpt-4", "--model", "-m", help="Model to use if no agent specified"
+    ),
+    config: Path = typer.Option(
+        ".weave.yaml", "--config", "-c", help="Path to config file"
+    ),
+    verbose: bool = typer.Option(
+        False, "--verbose", "-v", help="Verbose output"
+    ),
 ) -> None:
     """
-    Run setup wizard for first-time configuration.
+    Run an interactive agentic chat session.
 
-    Interactive wizard to configure Weave, install shell completion,
-    and create example projects.
+    Start a conversational interface with an AI agent. You can specify
+    an agent from your config or use a default model.
     """
     try:
-        from .setup import run_setup_wizard
+        import asyncio
+        from ..runtime.llm_executor import LLMExecutor
+        from ..core.sessions import ConversationSession
+        from ..core.models import Agent, LLMConfig
+        import uuid
 
-        run_setup_wizard(console=console)
+        console.print("\n[bold cyan]🤖 Weave Agentic Chat[/bold cyan]")
+        console.print("[dim]Type 'exit' or 'quit' to end the session[/dim]\n")
 
-    except Exception as e:
-        output.print_error(e)
-        raise typer.Exit(1)
+        # Load config if agent specified
+        weave_config = None
+        agent_obj = None
 
+        if agent:
+            try:
+                weave_config = load_config_from_path(config)
+                if agent not in weave_config.agents:
+                    available = ", ".join(weave_config.agents.keys())
+                    console.print(f"[red]Agent '{agent}' not found.[/red]")
+                    console.print(f"[dim]Available agents: {available}[/dim]\n")
+                    raise typer.Exit(1)
+                agent_obj = weave_config.agents[agent]
+                console.print(f"[green]Using agent:[/green] {agent}")
+                console.print(f"[dim]Model: {agent_obj.model}[/dim]\n")
+            except Exception as e:
+                console.print(f"[yellow]Could not load config: {e}[/yellow]")
+                console.print("[dim]Using default model instead[/dim]\n")
 
-@app.command()
-def completion(
-    shell: str = typer.Argument(None, help="Shell to install for (bash, zsh, fish)"),
-    install: bool = typer.Option(False, "--install", help="Install completion"),
-    show: bool = typer.Option(False, "--show", help="Show completion script"),
-) -> None:
-    """
-    Manage shell completion for Weave.
+        # Create default agent if none specified
+        if not agent_obj:
+            console.print(f"[green]Using model:[/green] {model}\n")
+            agent_obj = Agent(
+                name="chat",
+                model=model,
+                prompt="You are a helpful AI assistant. Provide concise, accurate responses.",
+                llm_config=LLMConfig(temperature=0.7, max_tokens=2000)
+            )
 
-    Install tab-completion for bash, zsh, or fish shells.
-    """
-    try:
-        from .completion import install_completion, show_completion_script
-        import os
+        # Create session
+        session_id = str(uuid.uuid4())[:8]
+        session = ConversationSession(
+            session_id=session_id,
+            weave_name="chat",
+            agent_name=agent_obj.name
+        )
 
-        # Auto-detect shell if not specified
-        if not shell:
-            shell = os.environ.get("SHELL", "").split("/")[-1]
-            if shell not in ["bash", "zsh", "fish"]:
-                console.print("[red]Could not detect shell. Please specify:[/red]")
-                console.print("  weave completion bash --install")
-                console.print("  weave completion zsh --install")
-                console.print("  weave completion fish --install")
-                raise typer.Exit(1)
+        # Initialize executor
+        executor = LLMExecutor(
+            console=console,
+            verbose=verbose,
+            config=weave_config,
+            session=session
+        )
 
-        # Show script
-        if show:
-            show_completion_script(shell, console)
-            return
+        # Chat loop
+        async def chat_loop():
+            while True:
+                try:
+                    # Get user input
+                    user_input = console.input("\n[bold cyan]You:[/bold cyan] ")
 
-        # Install completion
-        if install:
-            install_completion(shell, console)
-            return
+                    if not user_input.strip():
+                        continue
 
-        # Default: show instructions
-        console.print(f"\n[bold]Shell Completion for {shell}[/bold]\n")
-        console.print("To install completion, run:")
-        console.print(f"  [cyan]weave completion {shell} --install[/cyan]\n")
-        console.print("To see the completion script:")
-        console.print(f"  [cyan]weave completion {shell} --show[/cyan]\n")
+                    if user_input.lower() in ['exit', 'quit', 'q']:
+                        console.print("\n[dim]Goodbye! 👋[/dim]\n")
+                        break
 
-    except Exception as e:
-        output.print_error(e)
-        raise typer.Exit(1)
+                    # Execute agent
+                    context = {"task": user_input}
+                    response = await executor.execute_agent(agent_obj, context)
 
+                    # Display response
+                    console.print(f"\n[bold green]Assistant:[/bold green] {response.content}")
 
-@app.command()
-def doctor() -> None:
-    """
-    Check installation and show diagnostic information.
+                    if verbose:
+                        console.print(f"\n[dim]Tokens: {response.tokens_used}, Time: {response.execution_time:.2f}s[/dim]")
 
-    Verifies Weave installation, checks dependencies, and provides
-    troubleshooting recommendations.
-    """
-    try:
-        from .setup import check_installation
+                except KeyboardInterrupt:
+                    console.print("\n\n[dim]Goodbye! 👋[/dim]\n")
+                    break
+                except Exception as e:
+                    console.print(f"\n[red]Error:[/red] {e}\n")
+                    if verbose:
+                        import traceback
+                        console.print(f"[dim]{traceback.format_exc()}[/dim]")
 
-        check_installation(console=console)
+        asyncio.run(chat_loop())
 
     except Exception as e:
         output.print_error(e)

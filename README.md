@@ -64,7 +64,7 @@ export ANTHROPIC_API_KEY="your-key-here"
 export OPENROUTER_API_KEY="your-key-here"
 ```
 
-Alternatively, API keys can be stored encrypted in `~/.weave/api_keys.yaml` during the setup wizard (`weave setup`).
+Alternatively, API keys can be stored encrypted in `~/.weave/api_keys.yaml` using the APIKeyManager.
 
 ## 🚀 Quick Start
 
@@ -122,10 +122,14 @@ Execution graph:
 2 agents will be executed.
 ```
 
-### 4. Visualize Dependencies
+### 4. Run Interactive Chat
 
 ```bash
-weave graph
+# Chat with default model
+weave run
+
+# Chat with specific agent from config
+weave run --agent researcher
 ```
 
 ## 🛠️ Built-in Tools
@@ -218,7 +222,7 @@ weave mcp --server-tools filesystem
 - `weave init` - Initialize new project
 - `weave plan` - Preview execution plan
 - `weave apply` - Execute workflow
-- `weave graph` - Visualize dependencies
+- `weave run` - Interactive agentic chat
 
 ### Development
 
@@ -232,12 +236,6 @@ weave mcp --server-tools filesystem
 - `weave tools --schema <tool-name>` - View tool schema
 - `weave plugins` - List plugins
 - `weave mcp` - Manage MCP servers
-
-### Setup
-
-- `weave setup` - Interactive setup wizard
-- `weave doctor` - Check installation
-- `weave completion bash --install` - Install shell completion
 
 ## 📂 Configuration
 

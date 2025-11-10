@@ -1,6 +1,6 @@
-"""Runtime execution engine for Weave."""
+"""Runtime execution components for Weave."""
 
-from .executor import MockExecutor, AgentOutput, ExecutionSummary
+from .executor import Executor, AgentOutput, ExecutionSummary
 from .hooks import ExecutorHook
 
-__all__ = ["MockExecutor", "AgentOutput", "ExecutionSummary", "ExecutorHook"]
+__all__ = ["Executor", "AgentOutput", "ExecutionSummary", "ExecutorHook"]

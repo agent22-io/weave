@@ -90,10 +90,7 @@ def setup_api_keys(console: Console) -> None:
     configure = Confirm.ask("Configure API keys now?", default=False)
 
     if not configure:
-        console.print("[dim]Skipped - you can set these later:[/dim]")
-        console.print("[dim]  weave keys --set openai[/dim]")
-        console.print("[dim]  weave keys --set anthropic[/dim]")
-        console.print("[dim]Or use environment variables:[/dim]")
+        console.print("[dim]Skipped - you can set these later using environment variables:[/dim]")
         console.print("[dim]  export OPENAI_API_KEY='sk-...'[/dim]")
         console.print("[dim]  export ANTHROPIC_API_KEY='sk-ant-...'[/dim]\n")
         return
@@ -344,8 +341,8 @@ def check_installation(console: Optional[Console] = None) -> None:
 
     if not openai_key and not anthropic_key:
         console.print("  • Set API keys for real LLM execution:")
-        console.print("    [cyan]weave keys --set openai[/cyan]")
-        console.print("    [dim]or export OPENAI_API_KEY='sk-...'[/dim]")
+        console.print("    [dim]export OPENAI_API_KEY='sk-...'[/dim]")
+        console.print("    [dim]export ANTHROPIC_API_KEY='sk-ant-...'[/dim]")
 
     try:
         __import__("openai")

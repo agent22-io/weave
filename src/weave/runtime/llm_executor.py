@@ -87,7 +87,7 @@ class LLMExecutor:
         if not api_key:
             if self.verbose:
                 self.console.print("[yellow]OPENAI_API_KEY not found in config or environment[/yellow]")
-                self.console.print("[dim]Set with: weave keys --set openai[/dim]")
+                self.console.print("[dim]Set with: export OPENAI_API_KEY='sk-...'[/dim]")
             self.openai_client = None
             return
 
@@ -109,7 +109,7 @@ class LLMExecutor:
         if not api_key:
             if self.verbose:
                 self.console.print("[yellow]ANTHROPIC_API_KEY not found in config or environment[/yellow]")
-                self.console.print("[dim]Set with: weave keys --set anthropic[/dim]")
+                self.console.print("[dim]Set with: export ANTHROPIC_API_KEY='sk-ant-...'[/dim]")
             self.anthropic_client = None
             return
 

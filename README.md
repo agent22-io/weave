@@ -53,29 +53,18 @@ pip install -e ".[all]"
 
 ### Setup API Keys
 
-Weave provides secure encrypted API key storage:
+Configure your LLM provider API keys using environment variables:
 
 ```bash
-# Interactive setup (recommended)
-weave keys --set openai
-
-# Or use environment variables
+# Set API keys via environment
 export OPENAI_API_KEY="your-key-here"
 export ANTHROPIC_API_KEY="your-key-here"
 
 # Optional: OpenRouter for multi-model access
-weave keys --set openrouter
+export OPENROUTER_API_KEY="your-key-here"
 ```
 
-API keys are stored encrypted in `~/.weave/api_keys.yaml` with automatic fallback to environment variables.
-
-**Key Management Commands:**
-```bash
-weave keys --list              # List configured providers
-weave keys --set <provider>    # Set API key (interactive)
-weave keys --remove <provider> # Remove API key
-weave keys --test <provider>   # Test API key
-```
+Alternatively, API keys can be stored encrypted in `~/.weave/api_keys.yaml` during the setup wizard (`weave setup`).
 
 ## 🚀 Quick Start
 
@@ -250,21 +239,6 @@ weave mcp --server-tools filesystem
 - `weave doctor` - Check installation
 - `weave completion bash --install` - Install shell completion
 
-### API Keys
-
-- `weave keys --list` - List configured providers
-- `weave keys --set <provider>` - Set API key (encrypted)
-- `weave keys --remove <provider>` - Remove API key
-- `weave keys --test <provider>` - Test API key
-
-### Sessions
-
-- `weave sessions --list` - List conversation sessions
-- `weave sessions --show <id>` - Show session details
-- `weave sessions --delete <id>` - Delete session
-- `weave apply --save-session` - Save conversation
-- `weave apply --session <id>` - Continue from session
-
 ## 📂 Configuration
 
 ### Agent Definition
@@ -321,53 +295,6 @@ Create resource structure:
 ```bash
 weave resources --create
 ```
-
-## 💬 Conversation Session Persistence
-
-Save and resume agent conversations:
-
-### Saving Sessions
-
-```bash
-# Save conversation during execution
-weave apply --save-session
-
-# Output shows session ID
-# ✓ Conversation saved to session: a3f8b2c1-...
-```
-
-### Managing Sessions
-
-```bash
-# List all sessions
-weave sessions --list
-
-# Filter by weave or agent
-weave sessions --list --weave content_pipeline
-
-# Show session details
-weave sessions --show a3f8b2c1
-
-# Export session to JSON
-weave sessions --show a3f8b2c1 --export session.json
-
-# Delete session
-weave sessions --delete a3f8b2c1
-
-# Clean up old sessions (>30 days)
-weave sessions --cleanup
-```
-
-### Continuing Conversations
-
-```bash
-# Continue from saved session
-weave apply --session a3f8b2c1
-
-# Session history is loaded and appended to
-```
-
-Sessions are stored encrypted in `~/.weave/sessions/` with full conversation history, metadata, and timestamps.
 
 ## 📂 Examples
 

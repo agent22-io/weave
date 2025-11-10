@@ -205,44 +205,14 @@ def apply(
     verbose: bool = typer.Option(
         False, "--verbose", "-v", help="Verbose output"
     ),
-    session: Optional[str] = typer.Option(
-        None, "--session", "-s", help="Load/continue from session ID"
-    ),
-    save_session: bool = typer.Option(
-        False, "--save-session", help="Save conversation to new session"
-    ),
 ) -> None:
     """
     Execute the agent flow with real LLM API calls.
 
-    Requires API keys configured via 'weave keys' or environment variables.
-    Use --save-session to persist conversation history.
+    Requires API keys configured via environment variables.
     """
     try:
         import asyncio
-        import uuid
-
-        # Load or create session if requested
-        loaded_session = None
-        session_id_to_save = None
-
-        if session:
-            from ..core.sessions import get_session_manager
-            manager = get_session_manager()
-            loaded_session = manager.load_session(session)
-
-            if loaded_session:
-                console.print(f"[green]✓ Loaded session: {session}[/green]")
-                console.print(f"[dim]Messages: {len(loaded_session.messages)}[/dim]\n")
-                session_id_to_save = session
-            else:
-                console.print(f"[red]Session not found: {session}[/red]")
-                raise typer.Exit(1)
-
-        elif save_session:
-            # Generate new session ID
-            session_id_to_save = str(uuid.uuid4())
-            console.print(f"[green]Will save conversation to session: {session_id_to_save}[/green]\n")
 
         # Load config
         console.print(f"\n📋 Loading configuration from [cyan]{config}[/cyan]...")
@@ -275,19 +245,9 @@ def apply(
         executor = Executor(
             console=console,
             verbose=verbose,
-            config=weave_config,
-            session=loaded_session,
-            session_id=session_id_to_save
+            config=weave_config
         )
         summary = asyncio.run(executor.execute_flow(graph, weave_name, dry_run=dry_run))
-
-        # Save session if requested
-        if session_id_to_save and executor.session:
-            from ..core.sessions import get_session_manager
-            manager = get_session_manager()
-            manager.save_session(executor.session)
-            console.print(f"\n[green]✓ Conversation saved to session: {session_id_to_save}[/green]")
-            console.print(f"[dim]View with: weave sessions --show {session_id_to_save}[/dim]\n")
 
         # Exit with error if any failed
         if summary.failed > 0:
@@ -1044,244 +1004,6 @@ def setup(
         from .setup import run_setup_wizard
 
         run_setup_wizard(console=console)
-
-    except Exception as e:
-        output.print_error(e)
-        raise typer.Exit(1)
-
-
-@app.command()
-def keys(
-    set_key: Optional[str] = typer.Option(None, "--set", help="Set API key for provider"),
-    api_key: Optional[str] = typer.Option(None, "--key", help="API key value (used with --set)"),
-    list_keys: bool = typer.Option(False, "--list", "-l", help="List configured providers"),
-    remove: Optional[str] = typer.Option(None, "--remove", help="Remove API key for provider"),
-    test: Optional[str] = typer.Option(None, "--test", help="Test API key for provider"),
-) -> None:
-    """
-    Manage API keys for LLM providers.
-
-    Securely store encrypted API keys in ~/.weave/api_keys.yaml
-    with fallback to environment variables.
-    """
-    try:
-        from ..core.api_keys import get_key_manager
-        from rich.table import Table
-        from rich.prompt import Prompt
-
-        manager = get_key_manager()
-
-        # Set API key
-        if set_key:
-            # Prompt for key if not provided
-            if not api_key:
-                api_key = Prompt.ask(
-                    f"Enter API key for [cyan]{set_key}[/cyan]",
-                    password=True
-                )
-
-            manager.set_key(set_key, api_key)
-            console.print(f"\n✅ [green]API key for {set_key} saved successfully[/green]")
-            console.print(f"[dim]Stored encrypted in ~/.weave/api_keys.yaml[/dim]\n")
-            return
-
-        # Remove API key
-        if remove:
-            if manager.remove_key(remove):
-                console.print(f"\n✅ [green]API key for {remove} removed successfully[/green]\n")
-            else:
-                console.print(f"\n[yellow]No stored key found for {remove}[/yellow]\n")
-            return
-
-        # Test API key
-        if test:
-            key = manager.get_key(test)
-            if key:
-                console.print(f"\n✅ [green]API key found for {test}[/green]")
-                # Show first/last 4 characters for verification
-                masked = f"{key[:4]}...{key[-4:]}" if len(key) > 8 else "****"
-                console.print(f"[dim]Key: {masked}[/dim]\n")
-            else:
-                console.print(f"\n[red]No API key found for {test}[/red]")
-                console.print(f"[dim]Set with: weave keys --set {test}[/dim]\n")
-            return
-
-        # List keys (default)
-        providers = manager.list_providers()
-
-        if not providers:
-            console.print("\n[yellow]No API keys configured[/yellow]")
-            console.print("\n[bold]Available providers:[/bold]")
-            console.print("  • openai - OpenAI (GPT-4, GPT-3.5)")
-            console.print("  • anthropic - Anthropic (Claude)")
-            console.print("  • openrouter - OpenRouter (multi-model)")
-            console.print("  • google - Google (Gemini)")
-            console.print("  • cohere - Cohere\n")
-            console.print("[bold]Set a key:[/bold]")
-            console.print("  [cyan]weave keys --set openai[/cyan]\n")
-            return
-
-        table = Table(title="Configured API Keys", show_header=True, header_style="bold magenta")
-        table.add_column("Provider", style="cyan")
-        table.add_column("Status", style="green")
-        table.add_column("Source", style="yellow")
-
-        # Check both config and env vars
-        env_map = {
-            "openai": "OPENAI_API_KEY",
-            "anthropic": "ANTHROPIC_API_KEY",
-            "openrouter": "OPENROUTER_API_KEY",
-            "google": "GOOGLE_API_KEY",
-            "cohere": "COHERE_API_KEY",
-        }
-
-        import os
-        for provider in sorted(providers.keys()):
-            # Determine source
-            env_var = env_map.get(provider, f"{provider.upper()}_API_KEY")
-            has_env = bool(os.getenv(env_var))
-
-            if has_env:
-                source = "env var"
-            else:
-                source = "config"
-
-            table.add_row(provider, "✓ configured", source)
-
-        console.print("\n")
-        console.print(table)
-        console.print(f"\n[bold]Total providers configured:[/bold] {len(providers)}")
-        console.print(f"[dim]Config: ~/.weave/api_keys.yaml[/dim]")
-        console.print(f"[dim]Use --test <provider> to verify a key[/dim]\n")
-
-    except Exception as e:
-        output.print_error(e)
-        raise typer.Exit(1)
-
-
-@app.command()
-def sessions(
-    list_all: bool = typer.Option(False, "--list", "-l", help="List all sessions"),
-    show: Optional[str] = typer.Option(None, "--show", "-s", help="Show specific session"),
-    delete: Optional[str] = typer.Option(None, "--delete", "-d", help="Delete a session"),
-    weave_filter: Optional[str] = typer.Option(None, "--weave", "-w", help="Filter by weave name"),
-    agent_filter: Optional[str] = typer.Option(None, "--agent", "-a", help="Filter by agent name"),
-    cleanup: bool = typer.Option(False, "--cleanup", help="Clean up old sessions (30 days)"),
-    export: Optional[str] = typer.Option(None, "--export", help="Export session to file"),
-) -> None:
-    """
-    Manage conversation session history.
-
-    Store and retrieve conversation history for agents.
-    Sessions are stored in ~/.weave/sessions/
-    """
-    try:
-        from ..core.sessions import get_session_manager, ConversationSession
-        from rich.table import Table
-        from rich.panel import Panel
-        from rich.syntax import Syntax
-        from datetime import datetime
-        import json
-
-        manager = get_session_manager()
-
-        # Delete session
-        if delete:
-            if manager.delete_session(delete):
-                console.print(f"\n✅ [green]Session deleted: {delete}[/green]\n")
-            else:
-                console.print(f"\n[red]Session not found: {delete}[/red]\n")
-            return
-
-        # Cleanup old sessions
-        if cleanup:
-            deleted = manager.cleanup_old_sessions(retention_days=30)
-            console.print(f"\n✅ [green]Cleaned up {deleted} old session(s)[/green]\n")
-            return
-
-        # Show specific session
-        if show:
-            session = manager.load_session(show)
-            if not session:
-                console.print(f"\n[red]Session not found: {show}[/red]\n")
-                raise typer.Exit(1)
-
-            console.print(f"\n[bold]Session: {session.session_id}[/bold]\n")
-
-            # Session info
-            info = Table.grid(padding=(0, 2))
-            info.add_column(style="cyan")
-            info.add_column()
-
-            info.add_row("Weave:", session.weave_name or "N/A")
-            info.add_row("Agent:", session.agent_name or "N/A")
-            info.add_row("Created:", datetime.fromtimestamp(session.created_at).strftime("%Y-%m-%d %H:%M:%S"))
-            info.add_row("Updated:", datetime.fromtimestamp(session.updated_at).strftime("%Y-%m-%d %H:%M:%S"))
-            info.add_row("Messages:", str(len(session.messages)))
-
-            console.print(info)
-            console.print()
-
-            # Show messages
-            if session.messages:
-                console.print("[bold]Conversation History:[/bold]\n")
-                for i, msg in enumerate(session.messages, 1):
-                    role_style = {
-                        "system": "dim",
-                        "user": "cyan",
-                        "assistant": "green",
-                        "tool": "yellow",
-                    }.get(msg.role, "white")
-
-                    timestamp = datetime.fromtimestamp(msg.timestamp).strftime("%H:%M:%S")
-                    console.print(f"[{role_style}]{i}. [{msg.role.upper()}] {timestamp}[/{role_style}]")
-                    console.print(Panel(msg.content, border_style="dim"))
-                    console.print()
-
-            # Export if requested
-            if export:
-                export_path = Path(export)
-                with open(export_path, "w") as f:
-                    json.dump(session.to_dict(), f, indent=2)
-                console.print(f"[green]✓ Exported to {export_path}[/green]\n")
-
-            return
-
-        # List sessions (default)
-        sessions_list = manager.list_sessions(
-            weave_name=weave_filter,
-            agent_name=agent_filter,
-            limit=20
-        )
-
-        if not sessions_list:
-            console.print("\n[yellow]No sessions found[/yellow]")
-            if weave_filter or agent_filter:
-                console.print("[dim]Try removing filters[/dim]")
-            console.print(f"\n[dim]Sessions are stored in: {manager.sessions_dir}[/dim]\n")
-            return
-
-        table = Table(title="Conversation Sessions", show_header=True, header_style="bold magenta")
-        table.add_column("Session ID", style="cyan")
-        table.add_column("Weave", style="green")
-        table.add_column("Agent", style="yellow")
-        table.add_column("Messages", style="blue")
-        table.add_column("Updated", style="white")
-
-        for session in sessions_list:
-            updated = datetime.fromtimestamp(session.updated_at).strftime("%Y-%m-%d %H:%M")
-            table.add_row(
-                session.session_id[:16] + "..." if len(session.session_id) > 16 else session.session_id,
-                session.weave_name or "N/A",
-                session.agent_name or "N/A",
-                str(len(session.messages)),
-                updated
-            )
-
-        console.print("\n")
-        console.print(table)
-        console.print(f"\n[dim]Showing {len(sessions_list)} most recent sessions[/dim]")
-        console.print("[dim]Use --show <session_id> to view details[/dim]\n")
 
     except Exception as e:
         output.print_error(e)

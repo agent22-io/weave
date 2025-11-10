@@ -1,0 +1,71 @@
+# GitHub Pages configuration for Weave
+
+# Site settings
+title: Weave
+description: Create and deploy AI agents in minutes, not months. A declarative framework for building and composing interoperable AI agents.
+url: "" # Will be set by GitHub Pages
+baseurl: "" # Will be set by GitHub Pages
+
+# Theme
+theme: jekyll-theme-cayman
+# Alternative themes you can use:
+# - jekyll-theme-minimal
+# - jekyll-theme-architect
+# - jekyll-theme-slate
+# - jekyll-theme-modernist
+
+# Build settings
+markdown: kramdown
+kramdown:
+  input: GFM
+  syntax_highlighter: rouge
+
+# Exclude files from build
+exclude:
+  - .git
+  - .github
+  - .gitignore
+  - venv
+  - env
+  - __pycache__
+  - "*.pyc"
+  - tests
+  - setup.py
+  - pyproject.toml
+  - MANIFEST.in
+  - install.sh
+  - .weave.yaml.example
+  - IMPLEMENTATION_SUMMARY.md
+  - DEPLOYMENT_SUMMARY.md
+  - PUBLISHING.md
+
+# Include files
+include:
+  - README.md
+  - LICENSE
+
+# Plugins
+plugins:
+  - jekyll-relative-links
+
+# Relative links configuration
+relative_links:
+  enabled: true
+  collections: true
+
+# Navigation
+navigation:
+  - title: Home
+    url: /
+  - title: Documentation
+    url: /docs/
+  - title: Examples
+    url: /examples/
+  - title: GitHub
+    url: https://github.com/weave/weave-cli
+
+# GitHub metadata (optional)
+github:
+  is_project_page: true
+  repository_name: weave-cli
+  owner_name: weave

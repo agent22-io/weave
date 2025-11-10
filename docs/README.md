@@ -1,6 +1,13 @@
+---
+layout: default
+title: Weave Documentation
+---
+
 # Weave Documentation
 
 Welcome to the Weave CLI documentation! Weave is a declarative agent orchestration framework.
+
+[← Back to Home](../)
 
 ## 📚 Documentation Structure
 

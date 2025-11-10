@@ -1,0 +1,184 @@
+version: "1.0"
+
+# Email Processing Automation
+# Use case: Intelligent email triage, response, and task extraction
+
+storage:
+  enabled: true
+  base_path: ".weave/email_storage"
+  state_file: ".weave/email_state.yaml"
+
+tools:
+  email_reader:
+    description: "Read email content and metadata"
+    category: "communication"
+    parameters:
+      email_id:
+        type: "string"
+        description: "Email identifier"
+        required: true
+
+  calendar_check:
+    description: "Check calendar availability"
+    category: "productivity"
+    parameters:
+      date_range:
+        type: "string"
+        description: "Date range to check"
+        required: true
+
+  task_creator:
+    description: "Create tasks in task management system"
+    category: "productivity"
+    parameters:
+      title:
+        type: "string"
+        description: "Task title"
+        required: true
+      description:
+        type: "string"
+        description: "Task description"
+        required: true
+      priority:
+        type: "string"
+        description: "Task priority"
+        required: false
+      due_date:
+        type: "string"
+        description: "Task due date"
+        required: false
+
+  email_sender:
+    description: "Send email responses"
+    category: "communication"
+    parameters:
+      to:
+        type: "string"
+        description: "Recipient email"
+        required: true
+      subject:
+        type: "string"
+        description: "Email subject"
+        required: true
+      body:
+        type: "string"
+        description: "Email body"
+        required: true
+
+agents:
+  email_classifier:
+    model: "gpt-4"
+    model_config:
+      temperature: 0.2
+      max_tokens: 800
+    tools: [email_reader]
+    outputs: "classification"
+    storage:
+      save_outputs: true
+      save_logs: true
+    prompt: |
+      Classify incoming email:
+      - Type: (meeting_request, task_assignment, information, question, complaint, spam)
+      - Priority: (urgent, high, normal, low)
+      - Requires response: (yes/no)
+      - Action items: Extract any tasks or action items
+      - Key entities: People, dates, projects mentioned
+      - Sentiment: positive, neutral, negative
+
+  task_extractor:
+    model: "gpt-4"
+    model_config:
+      temperature: 0.3
+      max_tokens: 1000
+    inputs: "email_classifier"
+    tools: [task_creator, calculator]
+    memory:
+      type: "buffer"
+      max_messages: 100
+      persist: true
+    outputs: "extracted_tasks"
+    storage:
+      save_outputs: true
+      save_memory: true
+    prompt: |
+      Extract and structure tasks from email:
+      - Identify all action items and tasks
+      - Set appropriate priorities and due dates
+      - Add context and dependencies
+      - Link to relevant projects
+      - Create tasks in task management system
+      - Generate summary of tasks created
+
+  meeting_scheduler:
+    model: "claude-3-opus"
+    model_config:
+      temperature: 0.3
+      max_tokens: 1200
+    inputs: "email_classifier"
+    tools: [calendar_check, string_formatter]
+    outputs: "meeting_response"
+    storage:
+      save_outputs: true
+    prompt: |
+      Handle meeting requests:
+      - Parse meeting details (time, duration, attendees)
+      - Check calendar availability
+      - Suggest alternative times if needed
+      - Draft meeting response or confirmation
+      - Include agenda if discussed
+      - Prepare calendar invitation details
+
+  response_drafter:
+    model: "claude-3-opus"
+    model_config:
+      temperature: 0.7
+      max_tokens: 1500
+      top_p: 0.9
+    inputs: "task_extractor"
+    tools: [string_formatter, text_length]
+    memory:
+      type: "buffer"
+      max_messages: 80
+      persist: true
+    outputs: "draft_response"
+    storage:
+      save_outputs: true
+      save_memory: true
+    prompt: |
+      Draft appropriate email response:
+      - Match tone of original email
+      - Address all questions and concerns
+      - Confirm action items and next steps
+      - Be professional and concise
+      - Include relevant details from context
+      - Suggest alternatives when declining
+      - Add appropriate greetings and closings
+
+  email_router:
+    model: "gpt-4"
+    model_config:
+      temperature: 0.2
+      max_tokens: 800
+    inputs: "response_drafter"
+    tools: [email_sender]
+    outputs: "routing_decision"
+    storage:
+      save_outputs: true
+    prompt: |
+      Make final routing decision:
+      - Determine if email can be auto-responded
+      - Check if human review is needed
+      - Verify response appropriateness
+      - Send response if confidence is high
+      - Queue for human review if uncertain
+      - Log all decisions and actions
+
+weaves:
+  email_processing:
+    description: "Complete email processing and automation workflow"
+    agents:
+      - email_classifier
+      - task_extractor
+      - meeting_scheduler
+      - response_drafter
+      - email_router

@@ -1,0 +1,139 @@
+version: "1.0"
+
+# Observability and Runtime Configuration Example
+# Demonstrates comprehensive monitoring, logging, and runtime control
+
+# Observability configuration
+observability:
+  # Logging
+  enabled: true
+  log_level: "INFO"
+  log_format: "json"
+  log_file: ".weave/logs/demo.log"
+  log_to_console: true
+  log_agent_inputs: true
+  log_agent_outputs: true
+  log_tool_calls: true
+
+  # Metrics
+  collect_metrics: true
+  track_token_usage: true
+  track_latency: true
+  track_success_rate: true
+
+  # Export
+  export_logs: true
+  export_metrics: true
+  export_dir: ".weave/exports"
+
+# Runtime configuration
+runtime:
+  # Execution
+  mode: "sequential"
+  max_concurrent_agents: 2
+  enable_caching: true
+
+  # Retry policy
+  max_retries: 2
+  retry_delay: 1.0
+  retry_backoff: "exponential"
+  retry_backoff_multiplier: 2.0
+  retry_on_errors: ["timeout", "api_error"]
+
+  # Timeouts
+  default_timeout: 180.0
+  weave_timeout: 600.0
+  tool_timeout: 30.0
+
+  # Rate limiting
+  enable_rate_limiting: true
+  requests_per_minute: 60
+
+  # Error handling
+  stop_on_error: false
+  continue_on_agent_failure: true
+  save_partial_results: true
+  verbose: true
+
+# Storage
+storage:
+  enabled: true
+  base_path: ".weave/storage"
+  format: "json"
+  auto_cleanup: true
+  retention_days: 7
+
+tools:
+  status_checker:
+    description: "Check system status"
+    category: "monitoring"
+    parameters:
+      component:
+        type: "string"
+        description: "Component to check"
+        required: true
+
+agents:
+  monitor:
+    model: "gpt-4"
+    capabilities: [monitoring, analytics]
+    model_config:
+      temperature: 0.2
+      max_tokens: 500
+    tools: [calculator, status_checker]
+    outputs: "status_report"
+    storage:
+      save_outputs: true
+      save_logs: true
+    prompt: |
+      Monitor system health and generate status reports.
+      Track key metrics and identify any anomalies.
+
+  analyzer:
+    model: "gpt-4"
+    capabilities: [analytics, decision-making]
+    model_config:
+      temperature: 0.4
+      max_tokens: 1000
+    inputs: "monitor"
+    tools: [calculator, list_operations]
+    memory:
+      type: "buffer"
+      max_messages: 50
+      persist: true
+    outputs: "analysis"
+    storage:
+      save_outputs: true
+      save_memory: true
+    prompt: |
+      Analyze monitoring data and provide insights:
+      - Identify trends and patterns
+      - Flag potential issues
+      - Recommend actions
+
+  reporter:
+    model: "gpt-4"
+    capabilities: [reporting, documentation]
+    model_config:
+      temperature: 0.6
+      max_tokens: 1500
+    inputs: "analyzer"
+    tools: [string_formatter, text_length]
+    outputs: "final_report"
+    storage:
+      save_outputs: true
+      retention_days: 30
+    prompt: |
+      Generate comprehensive monitoring report:
+      - Executive summary
+      - Detailed findings
+      - Actionable recommendations
+      - Format for stakeholders
+
+weaves:
+  monitoring_workflow:
+    description: "Complete monitoring and reporting workflow with observability"
+    agents:
+      - monitor
+      - analyzer
+      - reporter

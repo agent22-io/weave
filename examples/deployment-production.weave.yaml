@@ -1,0 +1,350 @@
+version: "1.0"
+
+# Production Deployment Example
+# Complete configuration for AWS production deployment with full observability
+
+# Provider: AWS Production
+provider:
+  provider: "aws"
+  name: "production-aws"
+  region: "us-east-1"
+  zone: "us-east-1a"
+
+  credentials_source: "env"
+  credentials_env_prefix: "AWS_"
+
+  aws:
+    account_id: "123456789012"
+    iam_role: "arn:aws:iam::123456789012:role/weave-production"
+    kms_key_id: "alias/weave-prod-encryption"
+    s3_bucket: "weave-prod-artifacts"
+    vpc_id: "vpc-prod-12345"
+    subnet_ids:
+      - "subnet-prod-1a"
+      - "subnet-prod-1b"
+    security_groups:
+      - "sg-weave-production"
+
+  tags:
+    environment: "production"
+    project: "weave"
+    cost_center: "ml-ops"
+    managed_by: "terraform"
+
+# Environment: Production
+environment:
+  name: "production"
+  description: "Production environment with strict controls"
+
+  config_overrides:
+    runtime:
+      mode: "parallel"
+      max_concurrent_agents: 10
+      max_retries: 3
+      enable_rate_limiting: true
+      requests_per_minute: 100
+    observability:
+      log_level: "INFO"
+      enable_tracing: true
+      collect_metrics: true
+
+  secrets_backend: "aws-secrets"
+  secrets_path: "weave/production"
+
+  env_vars:
+    ENVIRONMENT: "production"
+    LOG_LEVEL: "INFO"
+
+  feature_flags:
+    experimental_features: false
+    beta_tools: false
+    new_models: false
+
+  require_approval: true
+  max_concurrent_runs: 10
+
+  allowed_models:
+    - "gpt-4"
+    - "claude-3-opus"
+
+# Infrastructure: Production Resources
+infrastructure:
+  # Compute resources
+  cpu: "4"
+  memory: "16Gi"
+  cpu_limit: "8"
+  memory_limit: "32Gi"
+
+  # Networking
+  network_mode: "bridge"
+  vpc_id: "vpc-prod-12345"
+  subnet_ids:
+    - "subnet-prod-1a"
+    - "subnet-prod-1b"
+  security_groups:
+    - "sg-weave-production"
+  load_balancer: "weave-prod-alb"
+
+  # Storage
+  persistent_volumes:
+    - name: "weave-storage"
+      size: "500Gi"
+      storage_class: "gp3"
+      mount_path: "/weave/storage"
+    - name: "weave-cache"
+      size: "100Gi"
+      storage_class: "io2"
+      mount_path: "/weave/cache"
+  ephemeral_storage: "50Gi"
+
+  # Auto-scaling
+  min_replicas: 3
+  max_replicas: 20
+  auto_scaling: true
+  scaling_metric: "cpu"
+  scaling_threshold: 70.0
+
+  # Container
+  image: "weave/runtime:v1.0.0"
+  image_pull_policy: "IfNotPresent"
+
+  # Service mesh
+  service_mesh: true
+  service_mesh_type: "istio"
+
+  # Labels
+  labels:
+    app: "weave"
+    component: "agent-runtime"
+    environment: "production"
+    version: "v1.0.0"
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "9090"
+    sidecar.istio.io/inject: "true"
+
+# Deployment: Rolling with Auto-Rollback
+deployment:
+  name: "weave-production"
+  version: "1.0.0"
+
+  # Rolling deployment strategy
+  strategy: "rolling"
+  max_surge: "25%"
+  max_unavailable: "0%"
+
+  # Health checks
+  health_check_enabled: true
+  health_check_path: "/health"
+  health_check_interval: 10
+  health_check_timeout: 5
+  health_check_retries: 5
+
+  # Readiness checks
+  readiness_check_enabled: true
+  readiness_check_path: "/ready"
+  readiness_check_initial_delay: 30
+
+  # Liveness checks
+  liveness_check_enabled: true
+  liveness_check_path: "/health"
+  liveness_check_initial_delay: 60
+
+  # Rollback configuration
+  auto_rollback: true
+  rollback_on_failure: true
+  rollback_threshold: 0.01
+  revision_history_limit: 10
+
+  # CI/CD
+  ci_cd_enabled: true
+  ci_cd_provider: "github-actions"
+
+  # Deployment hooks
+  pre_deploy_hooks:
+    - "scripts/backup-production-state.sh"
+    - "scripts/validate-deployment.sh"
+    - "scripts/check-dependencies.sh"
+  post_deploy_hooks:
+    - "scripts/smoke-tests.sh"
+    - "scripts/verify-metrics.sh"
+    - "scripts/notify-stakeholders.sh"
+
+  # Notifications
+  notifications_enabled: true
+  notification_channels:
+    - "slack://prod-deployments"
+    - "pagerduty://on-call-sre"
+    - "email://ops-team@company.com"
+
+  # Versioning
+  versioning_strategy: "semantic"
+  version_prefix: "v"
+
+  # Deployment windows
+  maintenance_windows:
+    - start: "02:00"
+      end: "04:00"
+      timezone: "UTC"
+  allow_deploy_on_weekend: false
+  allow_deploy_on_holiday: false
+
+# Storage Configuration
+storage:
+  enabled: true
+  base_path: "/weave/storage"
+  state_file: "/weave/storage/state.yaml"
+  lock_file: "/weave/storage/weave.lock"
+  format: "json"
+  auto_cleanup: true
+  retention_days: 90
+
+# Observability Configuration
+observability:
+  # Logging
+  enabled: true
+  log_level: "INFO"
+  log_format: "json"
+  log_file: "/var/log/weave/production.log"
+  log_to_console: false
+  log_agent_inputs: false
+  log_agent_outputs: true
+  log_tool_calls: true
+
+  # Metrics
+  collect_metrics: true
+  metrics_format: "prometheus"
+  metrics_endpoint: "http://prometheus.monitoring:9090"
+  track_token_usage: true
+  track_latency: true
+  track_success_rate: true
+
+  # Tracing
+  enable_tracing: true
+  tracing_backend: "opentelemetry"
+  tracing_endpoint: "http://jaeger-collector.monitoring:4318/v1/traces"
+  trace_sampling_rate: 0.1
+
+  # Export
+  export_logs: true
+  export_metrics: true
+  export_traces: true
+  export_dir: "/weave/exports"
+
+# Runtime Configuration
+runtime:
+  # Execution
+  mode: "parallel"
+  max_concurrent_agents: 10
+  enable_caching: true
+
+  # Retry policy
+  max_retries: 3
+  retry_delay: 2.0
+  retry_backoff: "exponential"
+  retry_backoff_multiplier: 2.0
+  retry_on_errors: ["timeout", "api_error", "rate_limit"]
+
+  # Timeouts
+  default_timeout: 300.0
+  weave_timeout: 1800.0
+  tool_timeout: 60.0
+
+  # Rate limiting
+  enable_rate_limiting: true
+  requests_per_minute: 100
+  tokens_per_minute: 150000
+
+  # Resource limits
+  max_memory_mb: 16384
+  max_cpu_percent: 80.0
+
+  # Error handling
+  stop_on_error: false
+  continue_on_agent_failure: true
+  save_partial_results: true
+
+  # Execution options
+  dry_run: false
+  verbose: false
+  debug: false
+
+# Tools
+tools:
+  production_monitor:
+    description: "Monitor production systems"
+    category: "monitoring"
+    parameters:
+      system:
+        type: "string"
+        description: "System to monitor"
+        required: true
+
+# Agents
+agents:
+  health_monitor:
+    model: "gpt-4"
+    capabilities: [monitoring, analytics]
+    model_config:
+      temperature: 0.2
+      max_tokens: 1000
+    tools: [calculator, production_monitor]
+    outputs: "health_status"
+    storage:
+      save_outputs: true
+      save_logs: true
+    prompt: |
+      Monitor production system health:
+      - Check all critical services
+      - Analyze metrics and logs
+      - Identify anomalies
+      - Report status
+
+  performance_analyzer:
+    model: "claude-3-opus"
+    capabilities: [analytics, optimization]
+    model_config:
+      temperature: 0.3
+      max_tokens: 1500
+    inputs: "health_monitor"
+    tools: [calculator, list_operations]
+    memory:
+      type: "buffer"
+      max_messages: 100
+      persist: true
+    outputs: "performance_analysis"
+    storage:
+      save_outputs: true
+      save_memory: true
+    prompt: |
+      Analyze system performance:
+      - Review latency metrics
+      - Check resource utilization
+      - Identify bottlenecks
+      - Recommend optimizations
+
+  alert_manager:
+    model: "gpt-4"
+    capabilities: [monitoring, reporting]
+    model_config:
+      temperature: 0.4
+      max_tokens: 800
+    inputs: "performance_analyzer"
+    tools: [string_formatter]
+    outputs: "alerts"
+    storage:
+      save_outputs: true
+    prompt: |
+      Manage production alerts:
+      - Generate alerts for issues
+      - Prioritize by severity
+      - Format for notification channels
+      - Include actionable recommendations
+
+weaves:
+  production_monitoring:
+    description: "Production system monitoring and alerting"
+    agents:
+      - health_monitor
+      - performance_analyzer
+      - alert_manager

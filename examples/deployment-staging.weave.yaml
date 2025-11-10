@@ -1,0 +1,94 @@
+version: "1.0"
+
+# Staging Environment Example
+# Configuration for pre-production testing
+
+provider:
+  provider: "kubernetes"
+  name: "staging-k8s"
+
+  kubernetes:
+    kubeconfig: "~/.kube/config"
+    context: "staging-cluster"
+    namespace: "weave-staging"
+    service_account: "weave-executor"
+
+environment:
+  name: "staging"
+  description: "Staging environment for testing before production"
+
+  config_overrides:
+    runtime:
+      mode: "parallel"
+      max_concurrent_agents: 3
+    observability:
+      log_level: "DEBUG"
+      log_to_console: true
+
+  secrets_backend: "vault"
+  secrets_path: "secret/weave/staging"
+
+  feature_flags:
+    new_features: true
+    beta_tools: true
+    experimental_models: true
+
+  promote_to: "production"
+  require_approval: true
+  max_concurrent_runs: 3
+
+infrastructure:
+  cpu: "1"
+  memory: "2Gi"
+  cpu_limit: "2"
+  memory_limit: "4Gi"
+
+  min_replicas: 2
+  max_replicas: 5
+  auto_scaling: true
+  scaling_metric: "cpu"
+  scaling_threshold: 75.0
+
+  labels:
+    app: "weave"
+    environment: "staging"
+
+deployment:
+  strategy: "rolling"
+  max_surge: "50%"
+  max_unavailable: "25%"
+
+  health_check_enabled: true
+  auto_rollback: true
+  rollback_threshold: 0.05
+
+  notifications_enabled: true
+  notification_channels:
+    - "slack://staging-deployments"
+
+storage:
+  enabled: true
+  auto_cleanup: true
+  retention_days: 7
+
+observability:
+  enabled: true
+  log_level: "DEBUG"
+  collect_metrics: true
+  enable_tracing: false
+
+runtime:
+  mode: "parallel"
+  max_concurrent_agents: 3
+  max_retries: 2
+
+agents:
+  test_agent:
+    model: "gpt-4"
+    capabilities: [text-generation]
+    tools: [calculator]
+
+weaves:
+  test_workflow:
+    description: "Test workflow for staging"
+    agents: [test_agent]

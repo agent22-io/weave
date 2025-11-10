@@ -5,6 +5,53 @@ from pydantic import BaseModel, Field, field_validator, model_validator, ConfigD
 from enum import Enum
 
 
+class AgentCapability(str, Enum):
+    """Standard agent capabilities."""
+
+    # Core capabilities
+    CODING = "coding"  # Code generation, analysis, review
+    IMAGE_GEN = "image-gen"  # Image generation and manipulation
+    IMAGE_ANALYSIS = "image-analysis"  # Image understanding and analysis
+    AUDIO_GEN = "audio-gen"  # Audio/music generation
+    AUDIO_ANALYSIS = "audio-analysis"  # Audio transcription and analysis
+    VIDEO_GEN = "video-gen"  # Video generation
+    VIDEO_ANALYSIS = "video-analysis"  # Video understanding
+
+    # Content capabilities
+    TEXT_GENERATION = "text-generation"  # Creative writing, content creation
+    TEXT_ANALYSIS = "text-analysis"  # NLP, sentiment analysis, summarization
+    TRANSLATION = "translation"  # Language translation
+    SEARCH = "search"  # Web/knowledge search
+    RESEARCH = "research"  # Information gathering and synthesis
+
+    # Technical capabilities
+    DATA_PROCESSING = "data-processing"  # Data transformation and analysis
+    DATA_VISUALIZATION = "data-visualization"  # Chart and graph creation
+    SQL = "sql"  # Database queries and analysis
+    API_INTEGRATION = "api-integration"  # External API interaction
+    WEB_SCRAPING = "web-scraping"  # Web data extraction
+
+    # Business capabilities
+    ANALYTICS = "analytics"  # Business intelligence and reporting
+    PLANNING = "planning"  # Strategic planning and organization
+    DECISION_MAKING = "decision-making"  # Analysis and recommendations
+    CLASSIFICATION = "classification"  # Categorization and tagging
+    EXTRACTION = "extraction"  # Information extraction from text
+
+    # Communication capabilities
+    EMAIL = "email"  # Email composition and processing
+    CHAT = "chat"  # Conversational interaction
+    DOCUMENTATION = "documentation"  # Technical documentation
+    REPORTING = "reporting"  # Report generation
+
+    # Specialized capabilities
+    SECURITY = "security"  # Security analysis and review
+    COMPLIANCE = "compliance"  # Regulatory compliance checking
+    QA = "qa"  # Quality assurance and testing
+    MONITORING = "monitoring"  # System monitoring and alerting
+    OPTIMIZATION = "optimization"  # Performance and efficiency optimization
+
+
 class ModelConfig(BaseModel):
     """Model-specific configuration."""
 
@@ -54,15 +101,24 @@ class AgentConfig(BaseModel):
 class Agent(BaseModel):
     """An AI agent definition."""
 
+    model_config = ConfigDict(populate_by_name=True)  # Pydantic config - must be first
+
     name: str = ""  # Will be injected from dict key
     model: str  # Model name (e.g., "gpt-4", "claude-3-opus")
-    model_config: Optional[ModelConfig] = None  # Model-specific configuration
+    capabilities: List[str] = Field(default_factory=list)  # Agent capabilities
+    llm_config: Optional[ModelConfig] = Field(default=None, alias="model_config")  # Model-specific configuration
     memory: Optional[MemoryConfig] = None  # Memory configuration
     storage: Optional[StorageConfig] = None  # Storage configuration
     tools: List[str] = Field(default_factory=list)
     inputs: Optional[str] = None  # Reference to another agent
     outputs: Optional[str] = None  # Output key name
+    prompt: Optional[str] = None  # Agent-specific prompt/instructions
     config: Dict[str, Any] = Field(default_factory=dict)  # Backward compatibility
+
+    @property
+    def model_settings(self) -> Optional[ModelConfig]:
+        """Alias for llm_config to avoid name conflict with Pydantic's model_config."""
+        return self.llm_config
 
     @field_validator("inputs")
     @classmethod
@@ -78,6 +134,26 @@ class Agent(BaseModel):
         """Ensure agent name is valid identifier."""
         if not v.replace("_", "").replace("-", "").isalnum():
             raise ValueError(f"Agent name must be alphanumeric with - or _: {v}")
+        return v
+
+    @field_validator("capabilities")
+    @classmethod
+    def validate_capabilities(cls, v: List[str]) -> List[str]:
+        """Validate capability names against known capabilities."""
+        if not v:
+            return v
+
+        valid_capabilities = {cap.value for cap in AgentCapability}
+        unknown = [cap for cap in v if cap not in valid_capabilities]
+
+        if unknown:
+            # Warning only - allow custom capabilities
+            import warnings
+            warnings.warn(
+                f"Unknown capabilities (will be treated as custom): {unknown}. "
+                f"Known capabilities: {sorted(valid_capabilities)}"
+            )
+
         return v
 
 
@@ -129,12 +205,273 @@ class GlobalStorageConfig(BaseModel):
     retention_days: int = 30  # Days to retain old state
 
 
+class ObservabilityConfig(BaseModel):
+    """Observability configuration for monitoring and debugging."""
+
+    # Logging configuration
+    enabled: bool = True
+    log_level: str = "INFO"  # DEBUG, INFO, WARNING, ERROR, CRITICAL
+    log_format: str = "json"  # json, text, structured
+    log_file: Optional[str] = ".weave/logs/weave.log"
+    log_to_console: bool = True
+    log_agent_inputs: bool = True  # Log agent inputs
+    log_agent_outputs: bool = True  # Log agent outputs
+    log_tool_calls: bool = True  # Log tool invocations
+
+    # Metrics configuration
+    collect_metrics: bool = True
+    metrics_format: str = "prometheus"  # prometheus, statsd, datadog
+    metrics_endpoint: Optional[str] = None
+    track_token_usage: bool = True  # Track LLM token usage
+    track_latency: bool = True  # Track agent execution time
+    track_success_rate: bool = True  # Track success/failure rates
+
+    # Tracing configuration
+    enable_tracing: bool = False  # Distributed tracing
+    tracing_backend: str = "opentelemetry"  # opentelemetry, jaeger, zipkin
+    tracing_endpoint: Optional[str] = None
+    trace_sampling_rate: float = 1.0  # 0.0 to 1.0
+
+    # Export configuration
+    export_traces: bool = False
+    export_metrics: bool = False
+    export_logs: bool = False
+    export_dir: str = ".weave/exports"
+
+
+class RuntimeConfig(BaseModel):
+    """Runtime execution configuration."""
+
+    # Execution mode
+    mode: str = "sequential"  # sequential, parallel, async
+    max_concurrent_agents: int = 1  # Max agents running in parallel
+    enable_caching: bool = True  # Cache agent outputs
+
+    # Retry policy
+    max_retries: int = 0  # Number of retries on failure
+    retry_delay: float = 1.0  # Initial retry delay in seconds
+    retry_backoff: str = "exponential"  # exponential, linear, constant
+    retry_backoff_multiplier: float = 2.0  # Backoff multiplier
+    retry_on_errors: List[str] = Field(default_factory=lambda: ["timeout", "api_error"])
+
+    # Timeouts
+    default_timeout: Optional[float] = 300.0  # Default agent timeout (seconds)
+    weave_timeout: Optional[float] = 3600.0  # Total weave timeout (seconds)
+    tool_timeout: Optional[float] = 60.0  # Tool execution timeout (seconds)
+
+    # Rate limiting
+    enable_rate_limiting: bool = False
+    requests_per_minute: int = 60
+    tokens_per_minute: Optional[int] = None
+
+    # Resource limits
+    max_memory_mb: Optional[int] = None  # Max memory per agent
+    max_cpu_percent: Optional[float] = None  # Max CPU usage
+
+    # Error handling
+    stop_on_error: bool = True  # Stop execution on first error
+    continue_on_agent_failure: bool = False  # Continue if agent fails
+    save_partial_results: bool = True  # Save results of successful agents
+
+    # Execution options
+    dry_run: bool = False  # Dry run mode (no actual execution)
+    verbose: bool = False  # Verbose output
+    debug: bool = False  # Debug mode
+
+
+class ProviderConfig(BaseModel):
+    """Cloud/infrastructure provider configuration."""
+
+    # Provider identification
+    provider: str = "local"  # local, aws, azure, gcp, kubernetes, docker
+    name: Optional[str] = None  # Provider instance name
+
+    # Credentials
+    credentials_source: str = "env"  # env, file, vault, keychain
+    credentials_path: Optional[str] = None  # Path to credentials file
+    credentials_env_prefix: str = ""  # Environment variable prefix
+
+    # Region/Location
+    region: Optional[str] = None  # Provider region (e.g., us-east-1, westus2)
+    zone: Optional[str] = None  # Availability zone
+
+    # Provider-specific settings
+    aws: Optional[Dict[str, Any]] = None  # AWS-specific config
+    azure: Optional[Dict[str, Any]] = None  # Azure-specific config
+    gcp: Optional[Dict[str, Any]] = None  # GCP-specific config
+    kubernetes: Optional[Dict[str, Any]] = None  # K8s-specific config
+
+    # API configuration
+    api_endpoint: Optional[str] = None  # Custom API endpoint
+    api_version: Optional[str] = None  # API version
+    timeout: float = 30.0  # API timeout in seconds
+
+    # Tags/Labels
+    tags: Dict[str, str] = Field(default_factory=dict)
+
+
+class EnvironmentConfig(BaseModel):
+    """Environment/staging configuration."""
+
+    # Environment identification
+    name: str  # dev, staging, production, test
+    description: Optional[str] = None
+
+    # Environment overrides
+    config_overrides: Dict[str, Any] = Field(default_factory=dict)
+
+    # Secrets management
+    secrets_backend: str = "env"  # env, vault, aws-secrets, azure-keyvault, gcp-secret-manager
+    secrets_path: Optional[str] = None
+
+    # Environment variables
+    env_vars: Dict[str, str] = Field(default_factory=dict)
+    env_file: Optional[str] = None  # Path to .env file
+
+    # Feature flags
+    feature_flags: Dict[str, bool] = Field(default_factory=dict)
+
+    # Promotion/Demotion
+    promote_to: Optional[str] = None  # Next environment (staging -> production)
+    require_approval: bool = False  # Require approval for promotion
+
+    # Environment constraints
+    max_concurrent_runs: Optional[int] = None
+    allowed_models: Optional[List[str]] = None  # Restrict models per environment
+
+
+class InfrastructureConfig(BaseModel):
+    """Infrastructure requirements and configuration."""
+
+    # Compute resources
+    cpu: Optional[str] = None  # CPU request (e.g., "2", "500m")
+    memory: Optional[str] = None  # Memory request (e.g., "4Gi", "512Mi")
+    gpu: Optional[str] = None  # GPU request (e.g., "1", "nvidia-tesla-t4")
+
+    # Resource limits
+    cpu_limit: Optional[str] = None
+    memory_limit: Optional[str] = None
+    gpu_limit: Optional[str] = None
+
+    # Networking
+    network_mode: str = "bridge"  # bridge, host, none
+    vpc_id: Optional[str] = None
+    subnet_ids: List[str] = Field(default_factory=list)
+    security_groups: List[str] = Field(default_factory=list)
+    load_balancer: Optional[str] = None
+
+    # Storage
+    persistent_volumes: List[Dict[str, Any]] = Field(default_factory=list)
+    ephemeral_storage: Optional[str] = None
+
+    # Scaling
+    min_replicas: int = 1
+    max_replicas: int = 1
+    auto_scaling: bool = False
+    scaling_metric: str = "cpu"  # cpu, memory, requests, custom
+    scaling_threshold: float = 70.0  # Percentage or value
+
+    # Container configuration
+    image: Optional[str] = None  # Container image
+    image_pull_policy: str = "IfNotPresent"  # Always, IfNotPresent, Never
+    command: Optional[List[str]] = None
+    args: Optional[List[str]] = None
+
+    # Service mesh
+    service_mesh: bool = False
+    service_mesh_type: Optional[str] = None  # istio, linkerd, consul
+
+    # Labels and annotations
+    labels: Dict[str, str] = Field(default_factory=dict)
+    annotations: Dict[str, str] = Field(default_factory=dict)
+
+
+class DeploymentConfig(BaseModel):
+    """Deployment strategy and configuration."""
+
+    # Deployment identification
+    name: Optional[str] = None
+    version: Optional[str] = None
+
+    # Deployment strategy
+    strategy: str = "rolling"  # rolling, blue-green, canary, recreate, manual
+
+    # Rolling update configuration
+    max_surge: str = "25%"  # Max pods above desired during update
+    max_unavailable: str = "25%"  # Max pods unavailable during update
+
+    # Canary deployment
+    canary_percentage: float = 10.0  # Initial canary traffic percentage
+    canary_increment: float = 10.0  # Traffic increment per step
+    canary_interval: int = 300  # Seconds between increments
+
+    # Blue-green deployment
+    blue_green_active: str = "blue"  # Which environment is active
+
+    # Health checks
+    health_check_enabled: bool = True
+    health_check_path: str = "/health"
+    health_check_interval: int = 10  # Seconds
+    health_check_timeout: int = 5  # Seconds
+    health_check_retries: int = 3
+
+    # Readiness checks
+    readiness_check_enabled: bool = True
+    readiness_check_path: str = "/ready"
+    readiness_check_initial_delay: int = 30  # Seconds
+
+    # Liveness checks
+    liveness_check_enabled: bool = True
+    liveness_check_path: str = "/health"
+    liveness_check_initial_delay: int = 60  # Seconds
+
+    # Rollback configuration
+    auto_rollback: bool = True
+    rollback_on_failure: bool = True
+    rollback_threshold: float = 0.05  # Error rate threshold for rollback (5%)
+    revision_history_limit: int = 10
+
+    # CI/CD integration
+    ci_cd_enabled: bool = False
+    ci_cd_provider: Optional[str] = None  # github-actions, gitlab-ci, jenkins, etc.
+    ci_cd_webhook: Optional[str] = None
+
+    # Pre/Post deployment hooks
+    pre_deploy_hooks: List[str] = Field(default_factory=list)
+    post_deploy_hooks: List[str] = Field(default_factory=list)
+
+    # Deployment notifications
+    notifications_enabled: bool = False
+    notification_channels: List[str] = Field(default_factory=list)  # slack, email, pagerduty
+
+    # Versioning
+    versioning_strategy: str = "semantic"  # semantic, timestamp, commit-sha
+    version_prefix: Optional[str] = None
+
+    # Deployment windows
+    maintenance_windows: List[Dict[str, str]] = Field(default_factory=list)
+    allow_deploy_on_weekend: bool = True
+    allow_deploy_on_holiday: bool = False
+
+
 class WeaveConfig(BaseModel):
     """Complete Weave configuration file."""
 
     version: str = "1.0"
     env: Dict[str, str] = Field(default_factory=dict)
+
+    # Core configuration
     storage: Optional[GlobalStorageConfig] = None  # Global storage configuration
+    observability: Optional[ObservabilityConfig] = None  # Observability configuration
+    runtime: Optional[RuntimeConfig] = None  # Runtime configuration
+
+    # Deployment configuration
+    provider: Optional[ProviderConfig] = None  # Cloud/infrastructure provider
+    environment: Optional[EnvironmentConfig] = None  # Environment/staging settings
+    infrastructure: Optional[InfrastructureConfig] = None  # Infrastructure requirements
+    deployment: Optional[DeploymentConfig] = None  # Deployment strategy
+
+    # Agent and workflow definitions
     tools: Dict[str, CustomToolDef] = Field(default_factory=dict)  # Custom tool definitions
     agents: Dict[str, Agent]
     weaves: Dict[str, Weave]

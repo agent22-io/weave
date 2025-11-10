@@ -50,10 +50,9 @@ agents:
       - list_operations  # Built-in tool
     outputs: "analysis_results"
 
-  # Report writer - combines all inputs
+  # Report writer - standalone for flexibility
   report_writer:
     model: "gpt-4"
-    inputs: "data_analyst"
     tools:
       - write_file       # From filesystem MCP server
       - string_formatter # Built-in tool
@@ -69,16 +68,20 @@ weaves:
       - data_analyst
       - report_writer
 
-  # Alternative: Simpler web-only workflow
-  web_only:
-    description: "Focus on web research tasks"
+  # Alternative: File and web workflow
+  file_and_web:
+    description: "File analysis and web research"
     agents:
+      - file_analyzer
       - web_researcher
       - report_writer
 
-  # Alternative: GitHub-focused workflow
-  github_only:
-    description: "GitHub code analysis workflow"
+  # Alternative: Complete analysis workflow
+  full_analysis:
+    description: "Full analysis including GitHub and database"
     agents:
+      - file_analyzer
+      - web_researcher
       - code_reviewer
+      - data_analyst
       - report_writer

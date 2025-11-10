@@ -1,548 +1,833 @@
 # Configuration Reference
 
-Complete YAML schema reference for Weave configuration files.
+Complete reference for all Weave configuration options.
 
-## File Structure
+## Table of Contents
+
+- [Overview](#overview)
+- [Root Level](#root-level)
+- [Storage Configuration](#storage-configuration)
+- [Tool Definitions](#tool-definitions)
+- [Agent Configuration](#agent-configuration)
+  - [Agent Capabilities](#agent-capabilities)
+  - [Model Configuration](#model-configuration)
+  - [Memory Configuration](#memory-configuration)
+  - [Storage Configuration (Agent)](#storage-configuration-agent)
+- [Weave Definition](#weave-definition)
+- [Complete Example](#complete-example)
+
+## Overview
+
+Weave configurations are defined in YAML files with the `.weave.yaml` extension. All functionality is accessible through configuration - no code required.
+
+## Root Level
+
+The top-level structure of a Weave configuration file.
 
 ```yaml
-version: "1.0"           # Required
-env: {...}               # Optional
-agents: {...}            # Required
-weaves: {...}            # Required
+version: "1.0"
+env: {}
+storage: {}
+tools: {}
+agents: {}
+weaves: {}
 ```
 
----
+### `version` (required)
 
-## Root Properties
-
-### `version`
-
-**Type:** String
-**Required:** Yes
-**Default:** `"1.0"`
-
-Specifies the configuration schema version.
+**Type**: `string`
+**Default**: `"1.0"`
+**Description**: Configuration format version.
 
 ```yaml
 version: "1.0"
 ```
 
-### `env`
+### `env` (optional)
 
-**Type:** Object
-**Required:** No
-**Default:** `{}`
-
-Define environment variables for use throughout the config.
+**Type**: `object`
+**Default**: `{}`
+**Description**: Environment variables to set for the execution. Can be referenced using `${VAR_NAME}` syntax throughout the configuration.
 
 ```yaml
 env:
-  DEFAULT_MODEL: "gpt-4"
-  API_KEY: "${OPENAI_API_KEY}"    # Reference shell env
-  MAX_TOKENS: "2000"
+  MODEL_NAME: "gpt-4"
+  API_ENDPOINT: "https://api.openai.com/v1"
 ```
 
-### `agents`
+### `storage` (optional)
 
-**Type:** Object (key-value pairs)
-**Required:** Yes
+**Type**: [`GlobalStorageConfig`](#storage-configuration)
+**Default**: `null`
+**Description**: Global storage configuration for the entire weave. See [Storage Configuration](#storage-configuration) for details.
 
-Define all agents. Keys are agent names, values are agent configurations.
+### `tools` (optional)
+
+**Type**: `object`
+**Default**: `{}`
+**Description**: Custom tool definitions. See [Tool Definitions](#tool-definitions) for details.
+
+### `agents` (required)
+
+**Type**: `object`
+**Default**: N/A
+**Description**: Dictionary of agent definitions. At least one agent is required. See [Agent Configuration](#agent-configuration) for details.
+
+### `weaves` (required)
+
+**Type**: `object`
+**Default**: N/A
+**Description**: Dictionary of weave (workflow) definitions. At least one weave is required. See [Weave Definition](#weave-definition) for details.
+
+---
+
+## Storage Configuration
+
+Global storage settings for execution state, lock files, and agent outputs.
 
 ```yaml
-agents:
-  researcher: {...}
-  writer: {...}
+storage:
+  enabled: true
+  base_path: ".weave/storage"
+  state_file: ".weave/state.yaml"
+  lock_file: ".weave/weave.lock"
+  format: "json"
+  auto_cleanup: false
+  retention_days: 30
 ```
 
-### `weaves`
+### `enabled`
 
-**Type:** Object (key-value pairs)
-**Required:** Yes (at least one)
+**Type**: `boolean`
+**Default**: `true`
+**Description**: Enable or disable storage functionality.
 
-Define workflows. Keys are weave names, values are weave configurations.
+### `base_path`
+
+**Type**: `string`
+**Default**: `".weave/storage"`
+**Description**: Base directory for storing agent outputs, memory, and logs.
+
+### `state_file`
+
+**Type**: `string`
+**Default**: `".weave/state.yaml"`
+**Description**: Path to execution state file that tracks all runs.
+
+### `lock_file`
+
+**Type**: `string`
+**Default**: `".weave/weave.lock"`
+**Description**: Path to lock file used to prevent concurrent executions.
+
+### `format`
+
+**Type**: `string`
+**Options**: `"json"`, `"yaml"`, `"pickle"`
+**Default**: `"json"`
+**Description**: Storage format for saved data.
+
+### `auto_cleanup`
+
+**Type**: `boolean`
+**Default**: `false`
+**Description**: Automatically clean up old execution state on startup.
+
+### `retention_days`
+
+**Type**: `integer`
+**Default**: `30`
+**Description**: Number of days to retain execution state when auto_cleanup is enabled.
+
+---
+
+## Tool Definitions
+
+Define custom tools that agents can use.
 
 ```yaml
-weaves:
-  content_pipeline: {...}
-  data_flow: {...}
+tools:
+  tool_name:
+    description: "Tool description"
+    category: "category_name"
+    tags: ["tag1", "tag2"]
+    handler: "module.path.to.function"
+    parameters:
+      param_name:
+        type: "string"
+        description: "Parameter description"
+        required: true
+        default: "default_value"
+        enum: ["option1", "option2"]
+```
+
+### Tool Structure
+
+#### `description` (required)
+
+**Type**: `string`
+**Description**: Human-readable description of what the tool does.
+
+#### `category`
+
+**Type**: `string`
+**Default**: `"general"`
+**Description**: Category for organizing tools (e.g., "research", "communication", "analysis").
+
+#### `tags`
+
+**Type**: `array[string]`
+**Default**: `[]`
+**Description**: Tags for filtering and searching tools.
+
+#### `handler`
+
+**Type**: `string`
+**Default**: `null`
+**Description**: Python module path to the function that implements the tool (e.g., `"mymodule.tools.my_function"`).
+
+#### `parameters`
+
+**Type**: `object`
+**Default**: `{}`
+**Description**: Dictionary of parameter definitions. Each parameter has:
+
+##### Parameter Definition
+
+- **`type`** (required): `"string"`, `"number"`, `"integer"`, `"boolean"`, `"array"`, or `"object"`
+- **`description`** (required): Parameter description
+- **`required`**: Whether parameter is required (default: `true`)
+- **`default`**: Default value if not provided
+- **`enum`**: Array of allowed values
+
+### Built-in Tools
+
+Weave includes built-in tools:
+
+- `calculator`: Basic arithmetic operations
+- `text_length`: Count characters and words
+- `json_validator`: Validate JSON data
+- `string_formatter`: Format and manipulate strings
+- `list_operations`: List manipulation operations
+- `web_search`: Web search (via MCP)
+
+### Example
+
+```yaml
+tools:
+  email_sender:
+    description: "Send emails via SMTP"
+    category: "communication"
+    tags: ["email", "messaging"]
+    parameters:
+      to:
+        type: "string"
+        description: "Recipient email address"
+        required: true
+      subject:
+        type: "string"
+        description: "Email subject"
+        required: true
+      body:
+        type: "string"
+        description: "Email body content"
+        required: true
+      priority:
+        type: "string"
+        description: "Email priority"
+        required: false
+        enum: ["low", "normal", "high"]
+        default: "normal"
 ```
 
 ---
 
 ## Agent Configuration
 
-### Agent Properties
+Agents are the core building blocks of Weave workflows.
 
 ```yaml
 agents:
   agent_name:
-    model: "string"              # Required
-    tools: ["list"]              # Optional
-    inputs: "string"             # Optional
-    outputs: "string"            # Optional
-    config: {...}                # Optional
-```
-
-### `model`
-
-**Type:** String
-**Required:** Yes
-
-The AI model identifier.
-
-```yaml
-agents:
-  my_agent:
     model: "gpt-4"
-    # or
-    model: "claude-3-opus"
-    # or
-    model: "${DEFAULT_MODEL}"    # From env
+    capabilities: [coding, text-analysis]
+    model_config: {}
+    memory: {}
+    storage: {}
+    tools: []
+    inputs: "other_agent"
+    outputs: "output_key"
+    prompt: "Custom instructions"
 ```
 
-**Common Models:**
-- `gpt-4`
-- `gpt-3.5-turbo`
-- `claude-3-opus`
-- `claude-3-sonnet`
+### `model` (required)
+
+**Type**: `string`
+**Description**: Model identifier (e.g., `"gpt-4"`, `"claude-3-opus"`, `"gpt-3.5-turbo"`).
+
+**Examples**:
+- OpenAI: `"gpt-4"`, `"gpt-4-turbo"`, `"gpt-3.5-turbo"`
+- Anthropic: `"claude-3-opus"`, `"claude-3-sonnet"`, `"claude-3-haiku"`
+- Local: `"local/llama-2"`, `"ollama/mistral"`
+
+### `capabilities`
+
+**Type**: `array[string]`
+**Default**: `[]`
+**Description**: List of agent capabilities that describe what the agent can do.
+
+**Available Capabilities**:
+
+#### Core Capabilities
+- `coding`: Code generation, analysis, review
+- `image-gen`: Image generation and manipulation
+- `image-analysis`: Image understanding and analysis
+- `audio-gen`: Audio/music generation
+- `audio-analysis`: Audio transcription and analysis
+- `video-gen`: Video generation
+- `video-analysis`: Video understanding
+
+#### Content Capabilities
+- `text-generation`: Creative writing, content creation
+- `text-analysis`: NLP, sentiment analysis, summarization
+- `translation`: Language translation
+- `search`: Web/knowledge search
+- `research`: Information gathering and synthesis
+
+#### Technical Capabilities
+- `data-processing`: Data transformation and analysis
+- `data-visualization`: Chart and graph creation
+- `sql`: Database queries and analysis
+- `api-integration`: External API interaction
+- `web-scraping`: Web data extraction
+
+#### Business Capabilities
+- `analytics`: Business intelligence and reporting
+- `planning`: Strategic planning and organization
+- `decision-making`: Analysis and recommendations
+- `classification`: Categorization and tagging
+- `extraction`: Information extraction from text
+
+#### Communication Capabilities
+- `email`: Email composition and processing
+- `chat`: Conversational interaction
+- `documentation`: Technical documentation
+- `reporting`: Report generation
+
+#### Specialized Capabilities
+- `security`: Security analysis and review
+- `compliance`: Regulatory compliance checking
+- `qa`: Quality assurance and testing
+- `monitoring`: System monitoring and alerting
+- `optimization`: Performance and efficiency optimization
+
+**Example**:
+```yaml
+capabilities: [coding, security, qa]
+```
+
+### `model_config`
+
+**Type**: [`ModelConfig`](#model-configuration)
+**Default**: `null`
+**Description**: Model-specific configuration settings.
+
+### `memory`
+
+**Type**: [`MemoryConfig`](#memory-configuration)
+**Default**: `null`
+**Description**: Memory management configuration.
+
+### `storage`
+
+**Type**: [`StorageConfig`](#storage-configuration-agent)
+**Default**: `null`
+**Description**: Agent-specific storage settings.
 
 ### `tools`
 
-**Type:** Array of strings
-**Required:** No
-**Default:** `[]`
+**Type**: `array[string]`
+**Default**: `[]`
+**Description**: List of tool names available to this agent. Can reference built-in tools, custom tools, or MCP tools.
 
-List of tools available to the agent.
-
+**Example**:
 ```yaml
-agents:
-  researcher:
-    model: "gpt-4"
-    tools:
-      - web_search
-      - summarizer
-      - pdf_reader
+tools: [calculator, web_search, custom_tool, string_formatter]
 ```
-
-**Note:** In v0.1.0, tools are descriptive. v2.0 will implement actual tool execution.
 
 ### `inputs`
 
-**Type:** String
-**Required:** No
-**Default:** `null`
+**Type**: `string`
+**Default**: `null`
+**Description**: Reference to another agent whose output becomes this agent's input. Creates a dependency relationship.
 
-Reference to another agent whose output this agent depends on.
-
+**Example**:
 ```yaml
+# Agent B receives output from Agent A
 agents:
-  writer:
+  agent_a:
     model: "gpt-4"
-    inputs: "researcher"         # Depends on researcher agent
-```
+    outputs: "research_data"
 
-**Alternative forms:**
-```yaml
-inputs: "researcher"             # Short form
-inputs: "researcher.outputs"     # Explicit form (same result)
+  agent_b:
+    model: "gpt-4"
+    inputs: "agent_a"  # Gets research_data from agent_a
 ```
-
-**Rules:**
-- Referenced agent must exist
-- Referenced agent must be in the same weave
-- Cannot create circular dependencies
 
 ### `outputs`
 
-**Type:** String
-**Required:** No
-**Default:** `"{agent_name}_output"`
+**Type**: `string`
+**Default**: `null`
+**Description**: Key name for this agent's output. Other agents can reference this using `inputs`.
 
-Name for this agent's output.
+### `prompt`
 
+**Type**: `string`
+**Default**: `null`
+**Description**: Agent-specific instructions or system prompt. Provides context and guidance for the agent's behavior.
+
+**Example**:
 ```yaml
-agents:
-  researcher:
-    model: "gpt-4"
-    outputs: "research_summary"   # Explicit name
+prompt: |
+  You are a code review expert. Analyze the provided code for:
+  - Security vulnerabilities
+  - Performance issues
+  - Best practice violations
+  Provide specific, actionable feedback.
 ```
-
-**Default behavior:**
-```yaml
-agents:
-  researcher:
-    model: "gpt-4"
-    # outputs defaults to "researcher_output"
-```
-
-### `config`
-
-**Type:** Object
-**Required:** No
-**Default:** `{}`
-
-Model-specific configuration parameters.
-
-```yaml
-agents:
-  my_agent:
-    model: "gpt-4"
-    config:
-      temperature: 0.7           # Randomness (0-1)
-      max_tokens: 2000           # Max output length
-      top_p: 0.9                 # Nucleus sampling
-      custom_param: "value"      # Any custom field
-```
-
-**Common Parameters:**
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `temperature` | Number (0-1) | Controls randomness |
-| `max_tokens` | Integer | Maximum output tokens |
-| `top_p` | Number (0-1) | Nucleus sampling threshold |
-
-**Note:** Configuration is flexible and accepts any key-value pairs for future extensibility.
 
 ---
 
-## Weave Configuration
+## Model Configuration
 
-### Weave Properties
+Fine-tune model behavior and API settings.
+
+```yaml
+model_config:
+  provider: "openai"
+  temperature: 0.7
+  max_tokens: 1000
+  top_p: 1.0
+  frequency_penalty: 0.0
+  presence_penalty: 0.0
+  stop_sequences: []
+  api_base: "https://api.openai.com/v1"
+  api_key_env: "OPENAI_API_KEY"
+```
+
+### `provider`
+
+**Type**: `string`
+**Default**: `"openai"`
+**Options**: `"openai"`, `"anthropic"`, `"local"`, or custom
+**Description**: LLM provider identifier.
+
+### `temperature`
+
+**Type**: `float`
+**Range**: `0.0` to `2.0`
+**Default**: `0.7`
+**Description**: Controls randomness. Lower = more deterministic, higher = more creative.
+
+- `0.0-0.3`: Deterministic, factual
+- `0.4-0.7`: Balanced
+- `0.8-1.0`: Creative, varied
+- `1.0-2.0`: Very creative (use sparingly)
+
+### `max_tokens`
+
+**Type**: `integer`
+**Default**: `1000`
+**Description**: Maximum number of tokens in the response.
+
+### `top_p`
+
+**Type**: `float`
+**Range**: `0.0` to `1.0`
+**Default**: `1.0`
+**Description**: Nucleus sampling parameter. Alternative to temperature.
+
+### `frequency_penalty`
+
+**Type**: `float`
+**Range**: `-2.0` to `2.0`
+**Default**: `0.0`
+**Description**: Penalize repeated tokens based on frequency. Positive values reduce repetition.
+
+### `presence_penalty`
+
+**Type**: `float`
+**Range**: `-2.0` to `2.0`
+**Default**: `0.0`
+**Description**: Penalize repeated tokens based on presence. Positive values encourage topic diversity.
+
+### `stop_sequences`
+
+**Type**: `array[string]`
+**Default**: `[]`
+**Description**: Sequences that trigger response completion.
+
+### `api_base`
+
+**Type**: `string`
+**Default**: `null`
+**Description**: Custom API endpoint URL.
+
+### `api_key_env`
+
+**Type**: `string`
+**Default**: `"API_KEY"`
+**Description**: Environment variable name containing the API key.
+
+---
+
+## Memory Configuration
+
+Configure how agents retain and manage conversation history.
+
+```yaml
+memory:
+  type: "buffer"
+  max_messages: 100
+  summarize_after: 50
+  context_window: 4000
+  persist: true
+  storage_key: "agent_memory"
+```
+
+### `type`
+
+**Type**: `string`
+**Options**: `"buffer"`, `"summary"`, `"sliding_window"`, `"vector"`
+**Default**: `"buffer"`
+**Description**: Memory management strategy.
+
+**Types**:
+- **`buffer`**: Keep recent N messages
+- **`summary`**: Periodically summarize old messages
+- **`sliding_window`**: Keep last N tokens of context
+- **`vector`**: Use vector database for semantic search (future)
+
+### `max_messages`
+
+**Type**: `integer`
+**Default**: `100`
+**Description**: Maximum number of messages to keep in memory.
+
+### `summarize_after`
+
+**Type**: `integer`
+**Default**: `null`
+**Description**: Summarize messages after N messages (for `summary` type).
+
+### `context_window`
+
+**Type**: `integer`
+**Default**: `4000`
+**Description**: Context window size in tokens.
+
+### `persist`
+
+**Type**: `boolean`
+**Default**: `false`
+**Description**: Save memory to storage for persistence across runs.
+
+### `storage_key`
+
+**Type**: `string`
+**Default**: `null`
+**Description**: Custom key for storing memory. If not provided, uses agent name.
+
+---
+
+## Storage Configuration (Agent)
+
+Agent-specific storage settings that override global storage.
+
+```yaml
+storage:
+  enabled: true
+  base_path: ".weave/agent_storage"
+  save_outputs: true
+  save_memory: false
+  save_logs: true
+  retention_days: 7
+  format: "json"
+```
+
+### `enabled`
+
+**Type**: `boolean`
+**Default**: `true`
+**Description**: Enable storage for this agent.
+
+### `base_path`
+
+**Type**: `string`
+**Default**: `".weave/storage"`
+**Description**: Base directory for this agent's storage (overrides global).
+
+### `save_outputs`
+
+**Type**: `boolean`
+**Default**: `true`
+**Description**: Save agent outputs to storage.
+
+### `save_memory`
+
+**Type**: `boolean`
+**Default**: `false`
+**Description**: Save agent memory state to storage.
+
+### `save_logs`
+
+**Type**: `boolean`
+**Default**: `true`
+**Description**: Save execution logs for this agent.
+
+### `retention_days`
+
+**Type**: `integer`
+**Default**: `null`
+**Description**: Auto-delete files older than N days.
+
+### `format`
+
+**Type**: `string`
+**Options**: `"json"`, `"yaml"`, `"pickle"`
+**Default**: `"json"`
+**Description**: Format for stored data.
+
+---
+
+## Weave Definition
+
+Weaves define the workflow execution order and agent composition.
 
 ```yaml
 weaves:
-  weave_name:
-    description: "string"        # Optional
-    agents: ["list"]             # Required
+  workflow_name:
+    description: "Workflow description"
+    agents: [agent1, agent2, agent3]
 ```
 
 ### `description`
 
-**Type:** String
-**Required:** No
-**Default:** `""`
+**Type**: `string`
+**Default**: `""`
+**Description**: Human-readable description of the workflow.
 
-Human-readable description of the workflow.
+### `agents` (required)
 
+**Type**: `array[string]`
+**Description**: Ordered list of agent names to execute. Agents with dependencies (via `inputs`) are automatically ordered correctly.
+
+**Example**:
 ```yaml
 weaves:
-  content_pipeline:
-    description: "Research, write, and edit content"
-    agents: [...]
-```
-
-### `agents`
-
-**Type:** Array of strings
-**Required:** Yes (at least one)
-
-List of agents to include in this workflow.
-
-```yaml
-weaves:
-  my_workflow:
+  data_pipeline:
+    description: "Extract, transform, and analyze data"
     agents:
-      - researcher
-      - writer
-      - editor
-```
-
-**Rules:**
-- All referenced agents must be defined in `agents` section
-- Must contain at least one agent
-- Order doesn't matter (execution order is determined by dependencies)
-
----
-
-## Environment Variables
-
-### Syntax
-
-Use `${VARIABLE_NAME}` to reference environment variables.
-
-```yaml
-env:
-  MODEL: "${DEFAULT_MODEL}"
-  KEY: "${OPENAI_API_KEY}"
-
-agents:
-  my_agent:
-    model: "${MODEL}"
-```
-
-### Setting Environment Variables
-
-**Bash/Linux/macOS:**
-```bash
-export DEFAULT_MODEL="gpt-4"
-export OPENAI_API_KEY="sk-..."
-weave apply
-```
-
-**Windows (PowerShell):**
-```powershell
-$env:DEFAULT_MODEL="gpt-4"
-$env:OPENAI_API_KEY="sk-..."
-weave apply
-```
-
-**Inline:**
-```bash
-DEFAULT_MODEL=gpt-4 weave apply
-```
-
-### Missing Variables
-
-If a referenced environment variable is not set:
-
-```
-Error: Environment variable 'OPENAI_API_KEY' not set
-Please set these variables or remove them from your config.
+      - extractor
+      - transformer
+      - analyzer
+      - reporter
 ```
 
 ---
 
 ## Complete Example
 
+A comprehensive example showing all configuration options:
+
 ```yaml
 version: "1.0"
 
-# Environment configuration
+# Environment variables
 env:
-  DEFAULT_MODEL: "${DEFAULT_MODEL:-gpt-4}"
-  API_KEY: "${OPENAI_API_KEY}"
+  PRIMARY_MODEL: "gpt-4"
+  BACKUP_MODEL: "claude-3-opus"
+
+# Global storage configuration
+storage:
+  enabled: true
+  base_path: ".weave/storage"
+  state_file: ".weave/state.yaml"
+  lock_file: ".weave/weave.lock"
+  format: "json"
+  auto_cleanup: true
+  retention_days: 30
+
+# Custom tool definitions
+tools:
+  database_query:
+    description: "Execute SQL queries on database"
+    category: "data"
+    tags: ["sql", "database"]
+    parameters:
+      query:
+        type: "string"
+        description: "SQL query to execute"
+        required: true
+      database:
+        type: "string"
+        description: "Database name"
+        required: false
+        default: "main"
+
+  send_email:
+    description: "Send email notifications"
+    category: "communication"
+    parameters:
+      to:
+        type: "string"
+        required: true
+      subject:
+        type: "string"
+        required: true
+      body:
+        type: "string"
+        required: true
 
 # Agent definitions
 agents:
-  # Data collection agent
-  fetcher:
-    model: "${DEFAULT_MODEL}"
-    tools:
-      - api_client
-      - web_scraper
-    config:
-      temperature: 0.3
-      max_tokens: 1000
-    outputs: "raw_data"
-
-  # Data processing agent
-  processor:
-    model: "gpt-4"
-    tools:
-      - data_cleaner
-      - validator
-    inputs: "fetcher"          # Depends on fetcher
-    config:
-      temperature: 0.2
-      max_tokens: 1500
-    outputs: "clean_data"
-
-  # Analysis agent
-  analyzer:
-    model: "claude-3-opus"
-    tools:
-      - statistical_analyzer
-      - pattern_detector
-    inputs: "processor"        # Depends on processor
-    config:
-      temperature: 0.5
-      max_tokens: 2000
-    outputs: "insights"
-
-  # Report generator
-  reporter:
-    model: "gpt-4"
-    tools:
-      - report_formatter
-      - chart_generator
-    inputs: "analyzer"         # Depends on analyzer
-    config:
+  researcher:
+    model: "${PRIMARY_MODEL}"
+    capabilities: [research, search, text-analysis]
+    model_config:
+      provider: "openai"
       temperature: 0.7
+      max_tokens: 2000
+      api_key_env: "OPENAI_API_KEY"
+    tools: [web_search, calculator]
+    outputs: "research_findings"
+    storage:
+      save_outputs: true
+      save_logs: true
+    prompt: |
+      Research the given topic thoroughly and provide:
+      - Key insights and findings
+      - Relevant statistics and data
+      - Credible sources
+      Format results in structured JSON.
+
+  analyst:
+    model: "${PRIMARY_MODEL}"
+    capabilities: [data-processing, analytics, sql]
+    model_config:
+      provider: "openai"
+      temperature: 0.3
+      max_tokens: 1500
+    inputs: "researcher"
+    tools: [calculator, database_query, list_operations]
+    memory:
+      type: "buffer"
+      max_messages: 100
+      persist: true
+    outputs: "analysis_results"
+    storage:
+      save_outputs: true
+      save_memory: true
+    prompt: |
+      Analyze the research data:
+      - Extract key metrics
+      - Identify trends and patterns
+      - Perform statistical analysis
+      - Generate insights
+
+  writer:
+    model: "${BACKUP_MODEL}"
+    capabilities: [text-generation, documentation, reporting]
+    model_config:
+      provider: "anthropic"
+      temperature: 0.8
       max_tokens: 3000
-    outputs: "final_report"
+      api_key_env: "ANTHROPIC_API_KEY"
+    inputs: "analyst"
+    tools: [string_formatter, text_length]
+    outputs: "report"
+    storage:
+      save_outputs: true
+      retention_days: 90
+    prompt: |
+      Create a comprehensive report:
+      - Executive summary
+      - Detailed findings
+      - Visualizations and charts
+      - Recommendations and next steps
+
+  notifier:
+    model: "gpt-3.5-turbo"
+    capabilities: [email, chat]
+    model_config:
+      temperature: 0.5
+      max_tokens: 500
+    inputs: "writer"
+    tools: [send_email]
+    storage:
+      save_logs: true
+    prompt: |
+      Send notification email with report summary.
+      Keep it concise and professional.
 
 # Workflow definitions
 weaves:
-  # Full pipeline
   full_analysis:
-    description: "Complete data analysis workflow"
+    description: "Complete research, analysis, and reporting pipeline"
     agents:
-      - fetcher
-      - processor
-      - analyzer
-      - reporter
+      - researcher
+      - analyst
+      - writer
+      - notifier
 
-  # Quick analysis (skip reporting)
-  quick_analysis:
-    description: "Fast analysis without full report"
+  quick_research:
+    description: "Quick research without full analysis"
     agents:
-      - fetcher
-      - processor
-      - analyzer
+      - researcher
+      - writer
 ```
 
----
+## Configuration Validation
 
-## Validation Rules
+Validate your configuration before execution:
 
-### Required Fields
+```bash
+weave validate config.weave.yaml
+```
 
-❌ **Missing required field:**
+## Environment Variable Substitution
+
+Reference environment variables in your configuration:
+
 ```yaml
-agents:
-  my_agent:
-    # Error: 'model' is required
-    tools: [web_search]
+model: "${MODEL_NAME}"
+api_key_env: "${API_KEY_VAR}"
 ```
 
-✅ **Correct:**
-```yaml
-agents:
-  my_agent:
-    model: "gpt-4"
-    tools: [web_search]
+Set environment variables:
+
+```bash
+export MODEL_NAME="gpt-4"
+export API_KEY_VAR="OPENAI_API_KEY"
+weave run config.weave.yaml
 ```
-
-### Agent References
-
-❌ **Invalid reference:**
-```yaml
-agents:
-  writer:
-    model: "gpt-4"
-    inputs: "researcher"    # Error: researcher doesn't exist
-
-weaves:
-  pipeline:
-    agents: [writer]
-```
-
-✅ **Correct:**
-```yaml
-agents:
-  researcher:
-    model: "gpt-4"
-
-  writer:
-    model: "gpt-4"
-    inputs: "researcher"
-
-weaves:
-  pipeline:
-    agents: [researcher, writer]
-```
-
-### Circular Dependencies
-
-❌ **Circular dependency:**
-```yaml
-agents:
-  A:
-    model: "gpt-4"
-    inputs: "B"
-
-  B:
-    model: "gpt-4"
-    inputs: "A"         # Error: A → B → A
-
-weaves:
-  pipeline:
-    agents: [A, B]
-```
-
-✅ **Linear dependency:**
-```yaml
-agents:
-  A:
-    model: "gpt-4"
-
-  B:
-    model: "gpt-4"
-    inputs: "A"         # ✓ A → B
-
-weaves:
-  pipeline:
-    agents: [A, B]
-```
-
----
 
 ## Best Practices
 
-### 1. Use Environment Variables for Secrets
-
-✅ **Good:**
-```yaml
-env:
-  API_KEY: "${OPENAI_API_KEY}"
-
-agents:
-  my_agent:
-    config:
-      api_key: "${API_KEY}"
-```
-
-❌ **Bad:**
-```yaml
-agents:
-  my_agent:
-    config:
-      api_key: "sk-1234567890..."    # Don't hardcode secrets!
-```
-
-### 2. Name Agents Descriptively
-
-✅ **Good:**
-```yaml
-agents:
-  web_scraper: {...}
-  data_cleaner: {...}
-  report_generator: {...}
-```
-
-❌ **Bad:**
-```yaml
-agents:
-  agent1: {...}
-  agent2: {...}
-  agent3: {...}
-```
-
-### 3. Add Descriptions to Weaves
-
-✅ **Good:**
-```yaml
-weaves:
-  etl_pipeline:
-    description: "Extract, transform, and load customer data"
-    agents: [...]
-```
-
-❌ **Bad:**
-```yaml
-weaves:
-  pipeline1:
-    agents: [...]
-```
-
-### 4. Keep Config Modular
-
-For large projects, consider multiple config files:
-
-```bash
-# Development
-weave apply --config configs/dev.yaml
-
-# Production
-weave apply --config configs/prod.yaml
-```
-
----
+1. **Use descriptive agent names**: `code_reviewer` instead of `agent1`
+2. **Specify capabilities**: Helps with documentation and tool selection
+3. **Set appropriate temperatures**:
+   - `0.0-0.3` for factual, deterministic tasks
+   - `0.7-0.9` for creative tasks
+4. **Enable storage for important agents**: Helps with debugging and audit trails
+5. **Use memory for stateful agents**: Especially for conversational or iterative tasks
+6. **Provide clear prompts**: Specific instructions lead to better results
+7. **Validate configurations**: Always validate before executing in production
+8. **Use environment variables**: For sensitive data and environment-specific configs
 
 ## Next Steps
 
-- [CLI Commands](cli-commands.md) - Command reference
-- [Writing Configurations](../guides/writing-configs.md) - Best practices
-- [Error Messages](errors.md) - Troubleshooting
+- [Tool Calling Guide](../guides/tool-calling.md)
+- [MCP Integration Guide](../guides/mcp.md)
+- [Testing Guide](../guides/testing.md)
+- [Examples](../../examples/)

@@ -5,6 +5,53 @@ from pydantic import BaseModel, Field, field_validator, model_validator, ConfigD
 from enum import Enum
 
 
+class AgentCapability(str, Enum):
+    """Standard agent capabilities."""
+
+    # Core capabilities
+    CODING = "coding"  # Code generation, analysis, review
+    IMAGE_GEN = "image-gen"  # Image generation and manipulation
+    IMAGE_ANALYSIS = "image-analysis"  # Image understanding and analysis
+    AUDIO_GEN = "audio-gen"  # Audio/music generation
+    AUDIO_ANALYSIS = "audio-analysis"  # Audio transcription and analysis
+    VIDEO_GEN = "video-gen"  # Video generation
+    VIDEO_ANALYSIS = "video-analysis"  # Video understanding
+
+    # Content capabilities
+    TEXT_GENERATION = "text-generation"  # Creative writing, content creation
+    TEXT_ANALYSIS = "text-analysis"  # NLP, sentiment analysis, summarization
+    TRANSLATION = "translation"  # Language translation
+    SEARCH = "search"  # Web/knowledge search
+    RESEARCH = "research"  # Information gathering and synthesis
+
+    # Technical capabilities
+    DATA_PROCESSING = "data-processing"  # Data transformation and analysis
+    DATA_VISUALIZATION = "data-visualization"  # Chart and graph creation
+    SQL = "sql"  # Database queries and analysis
+    API_INTEGRATION = "api-integration"  # External API interaction
+    WEB_SCRAPING = "web-scraping"  # Web data extraction
+
+    # Business capabilities
+    ANALYTICS = "analytics"  # Business intelligence and reporting
+    PLANNING = "planning"  # Strategic planning and organization
+    DECISION_MAKING = "decision-making"  # Analysis and recommendations
+    CLASSIFICATION = "classification"  # Categorization and tagging
+    EXTRACTION = "extraction"  # Information extraction from text
+
+    # Communication capabilities
+    EMAIL = "email"  # Email composition and processing
+    CHAT = "chat"  # Conversational interaction
+    DOCUMENTATION = "documentation"  # Technical documentation
+    REPORTING = "reporting"  # Report generation
+
+    # Specialized capabilities
+    SECURITY = "security"  # Security analysis and review
+    COMPLIANCE = "compliance"  # Regulatory compliance checking
+    QA = "qa"  # Quality assurance and testing
+    MONITORING = "monitoring"  # System monitoring and alerting
+    OPTIMIZATION = "optimization"  # Performance and efficiency optimization
+
+
 class ModelConfig(BaseModel):
     """Model-specific configuration."""
 
@@ -54,15 +101,24 @@ class AgentConfig(BaseModel):
 class Agent(BaseModel):
     """An AI agent definition."""
 
+    model_config = ConfigDict(populate_by_name=True)  # Pydantic config - must be first
+
     name: str = ""  # Will be injected from dict key
     model: str  # Model name (e.g., "gpt-4", "claude-3-opus")
-    model_config: Optional[ModelConfig] = None  # Model-specific configuration
+    capabilities: List[str] = Field(default_factory=list)  # Agent capabilities
+    llm_config: Optional[ModelConfig] = Field(default=None, alias="model_config")  # Model-specific configuration
     memory: Optional[MemoryConfig] = None  # Memory configuration
     storage: Optional[StorageConfig] = None  # Storage configuration
     tools: List[str] = Field(default_factory=list)
     inputs: Optional[str] = None  # Reference to another agent
     outputs: Optional[str] = None  # Output key name
+    prompt: Optional[str] = None  # Agent-specific prompt/instructions
     config: Dict[str, Any] = Field(default_factory=dict)  # Backward compatibility
+
+    @property
+    def model_settings(self) -> Optional[ModelConfig]:
+        """Alias for llm_config to avoid name conflict with Pydantic's model_config."""
+        return self.llm_config
 
     @field_validator("inputs")
     @classmethod
@@ -78,6 +134,26 @@ class Agent(BaseModel):
         """Ensure agent name is valid identifier."""
         if not v.replace("_", "").replace("-", "").isalnum():
             raise ValueError(f"Agent name must be alphanumeric with - or _: {v}")
+        return v
+
+    @field_validator("capabilities")
+    @classmethod
+    def validate_capabilities(cls, v: List[str]) -> List[str]:
+        """Validate capability names against known capabilities."""
+        if not v:
+            return v
+
+        valid_capabilities = {cap.value for cap in AgentCapability}
+        unknown = [cap for cap in v if cap not in valid_capabilities]
+
+        if unknown:
+            # Warning only - allow custom capabilities
+            import warnings
+            warnings.warn(
+                f"Unknown capabilities (will be treated as custom): {unknown}. "
+                f"Known capabilities: {sorted(valid_capabilities)}"
+            )
+
         return v
 
 

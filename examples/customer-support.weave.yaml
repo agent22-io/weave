@@ -1,0 +1,149 @@
+version: "1.0"
+
+# Customer Support Automation
+# Use case: Automated customer inquiry handling and routing
+
+storage:
+  enabled: true
+  base_path: ".weave/support_storage"
+  state_file: ".weave/support_state.yaml"
+
+tools:
+  ticket_lookup:
+    description: "Look up customer ticket history"
+    category: "database"
+    parameters:
+      customer_id:
+        type: "string"
+        description: "Customer identifier"
+        required: true
+
+  knowledge_base_search:
+    description: "Search internal knowledge base"
+    category: "search"
+    parameters:
+      query:
+        type: "string"
+        description: "Search query"
+        required: true
+      category:
+        type: "string"
+        description: "KB category filter"
+        required: false
+
+  send_notification:
+    description: "Send notification to support team"
+    category: "communication"
+    parameters:
+      priority:
+        type: "string"
+        description: "Notification priority level"
+        required: true
+      message:
+        type: "string"
+        description: "Notification message"
+        required: true
+
+agents:
+  inquiry_classifier:
+    model: "gpt-4"
+    model_config:
+      temperature: 0.2
+      max_tokens: 500
+    outputs: "classification"
+    storage:
+      save_outputs: true
+      save_logs: true
+    prompt: |
+      Classify customer inquiry:
+      - Category: (technical, billing, general, complaint, feature_request)
+      - Urgency: (low, medium, high, critical)
+      - Sentiment: (positive, neutral, negative, angry)
+      - Auto-resolvable: (yes/no)
+      - Extract key information and intent
+
+  knowledge_agent:
+    model: "gpt-4"
+    model_config:
+      temperature: 0.3
+      max_tokens: 1000
+    inputs: "inquiry_classifier"
+    tools: [knowledge_base_search, ticket_lookup]
+    memory:
+      type: "buffer"
+      max_messages: 100
+      persist: true
+    outputs: "kb_results"
+    storage:
+      save_outputs: true
+      save_memory: true
+    prompt: |
+      Search knowledge base for relevant solutions:
+      - Find matching articles and solutions
+      - Check similar past tickets
+      - Identify applicable troubleshooting steps
+      - Gather product documentation
+
+  response_generator:
+    model: "claude-3-opus"
+    model_config:
+      temperature: 0.7
+      max_tokens: 1500
+      top_p: 0.9
+    inputs: "knowledge_agent"
+    tools: [string_formatter, text_length]
+    outputs: "response"
+    storage:
+      save_outputs: true
+    prompt: |
+      Generate a helpful customer response:
+      - Use empathetic and professional tone
+      - Provide clear step-by-step solutions
+      - Include relevant links and resources
+      - Offer next steps or escalation path
+      - Match customer's communication style
+
+  quality_checker:
+    model: "gpt-4"
+    model_config:
+      temperature: 0.1
+      max_tokens: 800
+    inputs: "response_generator"
+    outputs: "quality_score"
+    storage:
+      save_outputs: true
+    prompt: |
+      Evaluate response quality:
+      - Accuracy of information
+      - Completeness of solution
+      - Tone and professionalism
+      - Clarity and structure
+      - Score (1-10) with justification
+      - Suggest improvements if score < 8
+
+  escalation_handler:
+    model: "gpt-4"
+    model_config:
+      temperature: 0.2
+      max_tokens: 600
+    inputs: "quality_checker"
+    tools: [send_notification]
+    storage:
+      save_outputs: true
+    prompt: |
+      Determine if escalation is needed:
+      - Check if automated response is sufficient
+      - Identify if human agent is required
+      - Assess urgency and priority
+      - Route to appropriate team if escalated
+      - Send notifications as needed
+
+weaves:
+  support_workflow:
+    description: "Complete customer support automation workflow"
+    agents:
+      - inquiry_classifier
+      - knowledge_agent
+      - response_generator
+      - quality_checker
+      - escalation_handler

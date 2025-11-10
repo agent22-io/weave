@@ -1,0 +1,200 @@
+version: "1.0"
+
+# Social Media Content Pipeline
+# Use case: Multi-platform social media content creation and optimization
+
+storage:
+  enabled: true
+  base_path: ".weave/social_storage"
+  state_file: ".weave/social_state.yaml"
+
+tools:
+  web_search:
+    description: "Search for trending topics and hashtags"
+    category: "research"
+    parameters:
+      query:
+        type: "string"
+        description: "Search query"
+        required: true
+
+  hashtag_analyzer:
+    description: "Analyze hashtag performance and trends"
+    category: "analytics"
+    parameters:
+      hashtags:
+        type: "array"
+        description: "List of hashtags to analyze"
+        required: true
+      platform:
+        type: "string"
+        description: "Social media platform"
+        required: true
+
+  image_generator:
+    description: "Generate social media images"
+    category: "media"
+    parameters:
+      prompt:
+        type: "string"
+        description: "Image generation prompt"
+        required: true
+      style:
+        type: "string"
+        description: "Image style"
+        required: false
+
+agents:
+  trend_researcher:
+    model: "gpt-4"
+    model_config:
+      temperature: 0.7
+      max_tokens: 1500
+    tools: [web_search, calculator]
+    outputs: "trend_analysis"
+    storage:
+      save_outputs: true
+      save_logs: true
+    prompt: |
+      Research current trends and topics:
+      - Identify trending topics in the niche
+      - Find popular hashtags and keywords
+      - Analyze competitor content
+      - Discover content opportunities
+      - Note seasonal or timely angles
+      - Suggest content themes
+
+  content_creator:
+    model: "claude-3-opus"
+    model_config:
+      temperature: 0.8
+      max_tokens: 2000
+    inputs: "trend_researcher"
+    tools: [string_formatter, text_length, hashtag_analyzer]
+    memory:
+      type: "buffer"
+      max_messages: 100
+      persist: true
+    outputs: "raw_content"
+    storage:
+      save_outputs: true
+      save_memory: true
+    prompt: |
+      Create engaging social media content:
+      - Write attention-grabbing hooks
+      - Use storytelling techniques
+      - Include relevant hashtags
+      - Add call-to-action
+      - Keep it authentic and relatable
+      - Match brand voice and tone
+
+  platform_optimizer_twitter:
+    model: "gpt-4"
+    model_config:
+      temperature: 0.5
+      max_tokens: 500
+    inputs: "content_creator"
+    tools: [text_length]
+    outputs: "twitter_content"
+    storage:
+      save_outputs: true
+    prompt: |
+      Optimize content for Twitter/X:
+      - Keep under 280 characters
+      - Use 1-2 relevant hashtags
+      - Make it punchy and concise
+      - Consider thread format if needed
+      - Add engaging question or CTA
+      - Ensure mobile-friendly formatting
+
+  platform_optimizer_linkedin:
+    model: "claude-3-opus"
+    model_config:
+      temperature: 0.6
+      max_tokens: 1500
+    inputs: "content_creator"
+    tools: [string_formatter, text_length]
+    outputs: "linkedin_content"
+    storage:
+      save_outputs: true
+    prompt: |
+      Optimize content for LinkedIn:
+      - Professional yet engaging tone
+      - Longer-form content (1300-2000 chars)
+      - Include relevant industry insights
+      - Add value for professional audience
+      - Use line breaks for readability
+      - Include relevant hashtags (3-5)
+      - Strong opening hook
+
+  platform_optimizer_instagram:
+    model: "gpt-4"
+    model_config:
+      temperature: 0.7
+      max_tokens: 1200
+    inputs: "content_creator"
+    tools: [string_formatter, hashtag_analyzer, image_generator]
+    outputs: "instagram_content"
+    storage:
+      save_outputs: true
+    prompt: |
+      Optimize content for Instagram:
+      - Visual-first caption
+      - Emoji usage for personality
+      - Line breaks for readability
+      - 2200 character limit
+      - 10-15 relevant hashtags
+      - Strong CTA in caption
+      - Image description and alt text
+      - Story and reel suggestions
+
+  engagement_analyzer:
+    model: "gpt-4"
+    model_config:
+      temperature: 0.3
+      max_tokens: 1000
+    inputs: "platform_optimizer_instagram"
+    tools: [calculator, list_operations]
+    outputs: "engagement_prediction"
+    storage:
+      save_outputs: true
+    prompt: |
+      Analyze predicted engagement:
+      - Rate content quality (1-10)
+      - Predict engagement potential
+      - Identify strengths and weaknesses
+      - Suggest improvements
+      - Recommend best posting times
+      - Flag any potential issues
+      - Compare across platforms
+
+  content_scheduler:
+    model: "gpt-4"
+    model_config:
+      temperature: 0.2
+      max_tokens: 800
+    inputs: "engagement_analyzer"
+    tools: [string_formatter]
+    outputs: "schedule"
+    storage:
+      save_outputs: true
+    prompt: |
+      Create posting schedule:
+      - Recommend optimal posting times per platform
+      - Space out content appropriately
+      - Consider time zones and audience
+      - Suggest frequency for each platform
+      - Create content calendar format
+      - Note any scheduling conflicts
+
+weaves:
+  social_media_workflow:
+    description: "Complete multi-platform social media content pipeline"
+    agents:
+      - trend_researcher
+      - content_creator
+      - platform_optimizer_twitter
+      - platform_optimizer_linkedin
+      - platform_optimizer_instagram
+      - engagement_analyzer
+      - content_scheduler

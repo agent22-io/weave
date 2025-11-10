@@ -1,0 +1,159 @@
+version: "1.0"
+
+# Code Review Assistant
+# Use case: Automated code review with security, performance, and quality analysis
+
+storage:
+  enabled: true
+  base_path: ".weave/code_review"
+  state_file: ".weave/review_state.yaml"
+
+tools:
+  file_reader:
+    description: "Read source code files"
+    category: "filesystem"
+    parameters:
+      file_path:
+        type: "string"
+        description: "Path to file"
+        required: true
+
+  static_analyzer:
+    description: "Run static code analysis"
+    category: "analysis"
+    parameters:
+      language:
+        type: "string"
+        description: "Programming language"
+        required: true
+      code:
+        type: "string"
+        description: "Code to analyze"
+        required: true
+
+  security_scanner:
+    description: "Scan code for security vulnerabilities"
+    category: "security"
+    parameters:
+      code:
+        type: "string"
+        description: "Code to scan"
+        required: true
+      severity_threshold:
+        type: "string"
+        description: "Minimum severity to report"
+        required: false
+
+agents:
+  code_analyzer:
+    model: "gpt-4"
+    capabilities: [coding, text-analysis, qa]
+    model_config:
+      temperature: 0.2
+      max_tokens: 2000
+    tools: [file_reader, static_analyzer]
+    outputs: "analysis"
+    storage:
+      save_outputs: true
+      save_logs: true
+    prompt: |
+      Analyze the code changes:
+      - Identify code smells and anti-patterns
+      - Check code complexity and readability
+      - Verify naming conventions
+      - Review code structure and organization
+      - Flag potential bugs or issues
+
+  security_reviewer:
+    model: "gpt-4"
+    capabilities: [coding, security, compliance]
+    model_config:
+      temperature: 0.1
+      max_tokens: 1500
+    inputs: "code_analyzer"
+    tools: [security_scanner]
+    outputs: "security_findings"
+    storage:
+      save_outputs: true
+    prompt: |
+      Perform security review:
+      - Check for common vulnerabilities (SQL injection, XSS, etc.)
+      - Review authentication and authorization
+      - Identify insecure data handling
+      - Check for hardcoded secrets or credentials
+      - Verify input validation and sanitization
+      - Rate severity (critical, high, medium, low)
+
+  performance_reviewer:
+    model: "claude-3-opus"
+    capabilities: [coding, optimization, analytics]
+    model_config:
+      temperature: 0.3
+      max_tokens: 1500
+    inputs: "code_analyzer"
+    tools: [calculator, list_operations]
+    memory:
+      type: "buffer"
+      max_messages: 50
+    outputs: "performance_insights"
+    storage:
+      save_outputs: true
+      save_memory: true
+    prompt: |
+      Review performance implications:
+      - Identify inefficient algorithms or operations
+      - Check database query optimization
+      - Review resource usage (memory, CPU)
+      - Flag potential bottlenecks
+      - Suggest optimization opportunities
+      - Estimate performance impact
+
+  best_practices_checker:
+    model: "gpt-4"
+    capabilities: [coding, qa, documentation]
+    model_config:
+      temperature: 0.2
+      max_tokens: 1500
+    inputs: "code_analyzer"
+    outputs: "best_practices"
+    storage:
+      save_outputs: true
+    prompt: |
+      Verify adherence to best practices:
+      - Check coding standards compliance
+      - Review error handling
+      - Verify logging and monitoring
+      - Check test coverage considerations
+      - Review documentation completeness
+      - Assess maintainability
+
+  review_summarizer:
+    model: "claude-3-opus"
+    capabilities: [text-generation, documentation, reporting]
+    model_config:
+      temperature: 0.4
+      max_tokens: 2000
+    inputs: "best_practices_checker"
+    tools: [string_formatter, json_validator]
+    outputs: "review_summary"
+    storage:
+      save_outputs: true
+    prompt: |
+      Create comprehensive review summary:
+      - Aggregate findings from all reviewers
+      - Prioritize issues by severity and impact
+      - Provide actionable recommendations
+      - Highlight positive aspects of the code
+      - Generate checklist for fixes
+      - Format as structured review comment
+      - Include code snippets for suggestions
+
+weaves:
+  full_code_review:
+    description: "Complete automated code review process"
+    agents:
+      - code_analyzer
+      - security_reviewer
+      - performance_reviewer
+      - best_practices_checker
+      - review_summarizer

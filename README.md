@@ -39,50 +39,6 @@ curl -fsSL https://weave.dev/install.sh | bash
 weave setup
 ```
 
-### Manual Installation
-
-#### From Source
-
-```bash
-# Clone and install
-git clone https://github.com/weave/weave-cli.git
-cd weave-cli
-pip install -e .
-
-# Run setup wizard
-weave setup
-
-# Install shell completion
-weave completion bash --install
-```
-
-#### Using pip (coming soon)
-
-```bash
-# Basic installation
-pip install weave-cli
-
-# With all features
-pip install weave-cli[all]
-```
-
-### Optional Features
-
-Install additional capabilities as needed:
-
-```bash
-# Real LLM execution (OpenAI, Anthropic)
-pip install weave-cli[llm]
-
-# Cloud deployment (AWS, GCP, Docker)
-pip install weave-cli[deploy]
-
-# Development mode (auto-reload)
-pip install weave-cli[watch]
-
-# Everything
-pip install weave-cli[all]
-```
 
 ### Post-Install Setup
 

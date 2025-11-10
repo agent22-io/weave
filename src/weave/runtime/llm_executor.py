@@ -10,6 +10,9 @@ from rich.console import Console
 
 if TYPE_CHECKING:
     from ..core.models import Agent, WeaveConfig
+    from ..core.sessions import ConversationSession
+
+from ..core.memory import MemoryManager
 
 # Optional imports for LLM providers
 try:
@@ -53,6 +56,7 @@ class LLMExecutor:
         verbose: bool = False,
         config: Optional["WeaveConfig"] = None,
         session: Optional["ConversationSession"] = None,
+        memory_manager: Optional[MemoryManager] = None,
     ):
         """Initialize LLM executor.
 
@@ -61,11 +65,13 @@ class LLMExecutor:
             verbose: Enable verbose logging
             config: Weave configuration
             session: Conversation session for history
+            memory_manager: Memory manager for agent memory
         """
         self.console = console or Console()
         self.verbose = verbose
         self.config = config
         self.session = session
+        self.memory_manager = memory_manager
 
         # Initialize API clients
         self._init_openai()
@@ -201,6 +207,14 @@ class LLMExecutor:
         else:
             parts.append("You are a helpful AI assistant.")
 
+        # Add long-term memory context if available
+        if self.memory_manager:
+            long_term_context = self.memory_manager.get_long_term_context()
+            if long_term_context:
+                parts.append("\n## Long-Term Memory")
+                parts.append("Here are important facts and information you should remember:")
+                parts.append(long_term_context)
+
         # Add tool instructions if agent has tools
         if agent.tools:
             parts.append(
@@ -248,7 +262,16 @@ class LLMExecutor:
 
         # Use session history if available, otherwise build fresh messages
         if self.session and len(self.session.messages) > 0:
-            messages = self.session.get_messages_for_llm()
+            # Apply short-term memory strategy if memory manager is available
+            if self.memory_manager:
+                filtered_messages = self.memory_manager.apply_short_term_strategy(self.session)
+                messages = [
+                    {"role": msg.role, "content": msg.content}
+                    for msg in filtered_messages
+                    if msg.role in ["system", "user", "assistant"]
+                ]
+            else:
+                messages = self.session.get_messages_for_llm()
         else:
             messages = [
                 {"role": "system", "content": system_prompt},
@@ -322,9 +345,19 @@ class LLMExecutor:
 
         # Use session history if available
         if self.session and len(self.session.messages) > 0:
+            # Apply short-term memory strategy if memory manager is available
+            if self.memory_manager:
+                filtered_messages = self.memory_manager.apply_short_term_strategy(self.session)
+                session_messages = [
+                    {"role": msg.role, "content": msg.content}
+                    for msg in filtered_messages
+                    if msg.role in ["system", "user", "assistant"]
+                ]
+            else:
+                session_messages = self.session.get_messages_for_llm()
+
             # Anthropic requires system prompt separate from messages
             # Extract system message if present
-            session_messages = self.session.get_messages_for_llm()
             system_msg = system_prompt
             messages = []
 

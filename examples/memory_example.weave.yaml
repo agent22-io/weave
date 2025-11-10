@@ -1,0 +1,48 @@
+# Memory Example - Agents with short-term and long-term memory
+
+version: "1.0"
+
+agents:
+  # Agent with buffer strategy (keeps system message + recent messages)
+  chat_assistant:
+    model: "gpt-4"
+    prompt: "You are a helpful assistant that remembers context from the conversation."
+    outputs: "chat_response"
+    memory:
+      type: "buffer"           # Buffer strategy: keeps system + recent messages
+      max_messages: 20         # Keep last 20 messages
+      persist: true            # Save long-term memory to .weave/memory/
+      context_window: 4000     # Context window size in tokens
+
+  # Agent with sliding window strategy
+  data_processor:
+    model: "gpt-4"
+    prompt: "You process data and maintain recent context."
+    inputs: "chat_assistant"
+    outputs: "processed_data"
+    memory:
+      type: "sliding_window"   # Sliding window: keeps only last N messages
+      max_messages: 10         # Keep last 10 messages
+      persist: false           # Don't save to long-term memory
+
+  # Agent with long-term memory persistence
+  knowledge_keeper:
+    model: "claude-3-sonnet"
+    prompt: |
+      You are a knowledge keeper that learns from conversations.
+      You maintain long-term memory of important facts and information.
+    inputs: "data_processor"
+    outputs: "insights"
+    memory:
+      type: "buffer"
+      max_messages: 50
+      persist: true            # Long-term memory will be saved to .weave/memory/knowledge_keeper_memory.md
+      storage_key: "knowledge" # Optional: custom storage key
+
+weaves:
+  memory_workflow:
+    description: "Workflow demonstrating memory management"
+    agents:
+      - chat_assistant
+      - data_processor
+      - knowledge_keeper

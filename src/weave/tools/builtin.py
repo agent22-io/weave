@@ -2,6 +2,8 @@
 
 from typing import Any, Dict, List
 import json
+import os
+from pathlib import Path
 
 from weave.tools.models import Tool, ToolDefinition, ToolParameter, ParameterType
 
@@ -110,6 +112,117 @@ def list_operations(
             return {"error": f"Unknown operation: {operation}"}
     except Exception as e:
         return {"error": str(e), "operation": operation}
+
+
+def http_request(
+    url: str, method: str = "GET", headers: Dict[str, str] = None,
+    body: str = None, timeout: int = 30
+) -> Dict[str, Any]:
+    """Make HTTP requests."""
+    try:
+        import requests
+
+        method = method.upper()
+        headers = headers or {}
+
+        if method == "GET":
+            response = requests.get(url, headers=headers, timeout=timeout)
+        elif method == "POST":
+            response = requests.post(url, headers=headers, data=body, timeout=timeout)
+        elif method == "PUT":
+            response = requests.put(url, headers=headers, data=body, timeout=timeout)
+        elif method == "DELETE":
+            response = requests.delete(url, headers=headers, timeout=timeout)
+        elif method == "PATCH":
+            response = requests.patch(url, headers=headers, data=body, timeout=timeout)
+        else:
+            return {"error": f"Unsupported HTTP method: {method}"}
+
+        return {
+            "status_code": response.status_code,
+            "headers": dict(response.headers),
+            "body": response.text,
+            "url": url,
+            "method": method,
+        }
+    except ImportError:
+        return {"error": "requests library required. Install: pip install requests"}
+    except Exception as e:
+        return {"error": str(e), "url": url, "method": method}
+
+
+def file_read(file_path: str, encoding: str = "utf-8") -> Dict[str, Any]:
+    """Read file contents."""
+    try:
+        path = Path(file_path).expanduser().resolve()
+
+        if not path.exists():
+            return {"error": f"File not found: {file_path}"}
+
+        if not path.is_file():
+            return {"error": f"Not a file: {file_path}"}
+
+        content = path.read_text(encoding=encoding)
+
+        return {
+            "content": content,
+            "path": str(path),
+            "size": len(content),
+            "lines": len(content.splitlines()),
+        }
+    except Exception as e:
+        return {"error": str(e), "path": file_path}
+
+
+def file_write(file_path: str, content: str, encoding: str = "utf-8",
+               create_dirs: bool = True) -> Dict[str, Any]:
+    """Write content to file."""
+    try:
+        path = Path(file_path).expanduser().resolve()
+
+        # Create parent directories if needed
+        if create_dirs and not path.parent.exists():
+            path.parent.mkdir(parents=True, exist_ok=True)
+
+        path.write_text(content, encoding=encoding)
+
+        return {
+            "success": True,
+            "path": str(path),
+            "size": len(content),
+            "lines": len(content.splitlines()),
+        }
+    except Exception as e:
+        return {"error": str(e), "path": file_path}
+
+
+def file_list(directory: str = ".", pattern: str = "*", recursive: bool = False) -> Dict[str, Any]:
+    """List files in directory."""
+    try:
+        path = Path(directory).expanduser().resolve()
+
+        if not path.exists():
+            return {"error": f"Directory not found: {directory}"}
+
+        if not path.is_dir():
+            return {"error": f"Not a directory: {directory}"}
+
+        if recursive:
+            files = [str(p.relative_to(path)) for p in path.rglob(pattern) if p.is_file()]
+            dirs = [str(p.relative_to(path)) for p in path.rglob(pattern) if p.is_dir()]
+        else:
+            files = [p.name for p in path.glob(pattern) if p.is_file()]
+            dirs = [p.name for p in path.glob(pattern) if p.is_dir()]
+
+        return {
+            "directory": str(path),
+            "files": sorted(files),
+            "directories": sorted(dirs),
+            "total_files": len(files),
+            "total_directories": len(dirs),
+        }
+    except Exception as e:
+        return {"error": str(e), "directory": directory}
 
 
 def get_builtin_tools() -> List[Tool]:
@@ -230,5 +343,142 @@ def get_builtin_tools() -> List[Tool]:
                 tags=["list", "array", "operations"],
             ),
             handler=list_operations,
+        ),
+        Tool(
+            definition=ToolDefinition(
+                name="http_request",
+                description="Make HTTP requests (GET, POST, PUT, DELETE, PATCH)",
+                parameters=[
+                    ToolParameter(
+                        name="url",
+                        type=ParameterType.STRING,
+                        description="URL to request",
+                        required=True,
+                    ),
+                    ToolParameter(
+                        name="method",
+                        type=ParameterType.STRING,
+                        description="HTTP method",
+                        required=False,
+                        default="GET",
+                        enum=["GET", "POST", "PUT", "DELETE", "PATCH"],
+                    ),
+                    ToolParameter(
+                        name="headers",
+                        type=ParameterType.OBJECT,
+                        description="HTTP headers",
+                        required=False,
+                    ),
+                    ToolParameter(
+                        name="body",
+                        type=ParameterType.STRING,
+                        description="Request body",
+                        required=False,
+                    ),
+                    ToolParameter(
+                        name="timeout",
+                        type=ParameterType.NUMBER,
+                        description="Request timeout in seconds",
+                        required=False,
+                        default=30,
+                    ),
+                ],
+                category="web",
+                tags=["http", "api", "web", "request"],
+            ),
+            handler=http_request,
+        ),
+        Tool(
+            definition=ToolDefinition(
+                name="file_read",
+                description="Read file contents",
+                parameters=[
+                    ToolParameter(
+                        name="file_path",
+                        type=ParameterType.STRING,
+                        description="Path to file",
+                        required=True,
+                    ),
+                    ToolParameter(
+                        name="encoding",
+                        type=ParameterType.STRING,
+                        description="File encoding",
+                        required=False,
+                        default="utf-8",
+                    ),
+                ],
+                category="filesystem",
+                tags=["file", "read", "io"],
+            ),
+            handler=file_read,
+        ),
+        Tool(
+            definition=ToolDefinition(
+                name="file_write",
+                description="Write content to file",
+                parameters=[
+                    ToolParameter(
+                        name="file_path",
+                        type=ParameterType.STRING,
+                        description="Path to file",
+                        required=True,
+                    ),
+                    ToolParameter(
+                        name="content",
+                        type=ParameterType.STRING,
+                        description="Content to write",
+                        required=True,
+                    ),
+                    ToolParameter(
+                        name="encoding",
+                        type=ParameterType.STRING,
+                        description="File encoding",
+                        required=False,
+                        default="utf-8",
+                    ),
+                    ToolParameter(
+                        name="create_dirs",
+                        type=ParameterType.BOOLEAN,
+                        description="Create parent directories if they don't exist",
+                        required=False,
+                        default=True,
+                    ),
+                ],
+                category="filesystem",
+                tags=["file", "write", "io"],
+            ),
+            handler=file_write,
+        ),
+        Tool(
+            definition=ToolDefinition(
+                name="file_list",
+                description="List files in directory",
+                parameters=[
+                    ToolParameter(
+                        name="directory",
+                        type=ParameterType.STRING,
+                        description="Directory path",
+                        required=False,
+                        default=".",
+                    ),
+                    ToolParameter(
+                        name="pattern",
+                        type=ParameterType.STRING,
+                        description="File pattern (glob)",
+                        required=False,
+                        default="*",
+                    ),
+                    ToolParameter(
+                        name="recursive",
+                        type=ParameterType.BOOLEAN,
+                        description="Search recursively",
+                        required=False,
+                        default=False,
+                    ),
+                ],
+                category="filesystem",
+                tags=["file", "list", "directory"],
+            ),
+            handler=file_list,
         ),
     ]

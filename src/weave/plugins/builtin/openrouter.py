@@ -2,6 +2,7 @@
 
 import os
 from typing import Any, Dict, Optional
+import time
 
 from ..base import Plugin, PluginCategory, PluginMetadata
 
@@ -17,12 +18,6 @@ class OpenRouterPlugin(Plugin):
     - Meta (Llama 2, Code Llama)
     - Mistral AI
     - And many more
-
-    Benefits:
-    - Single API for multiple providers
-    - Automatic fallbacks
-    - Cost optimization
-    - Rate limit management
     """
 
     metadata = PluginMetadata(
@@ -36,242 +31,104 @@ class OpenRouterPlugin(Plugin):
     )
 
     def __init__(self, config: Optional[Dict[str, Any]] = None):
-        """
-        Initialize OpenRouter plugin.
-
-        Configuration options:
-            api_key: OpenRouter API key (or set OPENROUTER_API_KEY env var)
-            api_base: API base URL (default: https://openrouter.ai/api/v1)
-            default_model: Default model to use
-            site_url: Your site URL for OpenRouter rankings
-            site_name: Your site name for OpenRouter rankings
-            timeout: Request timeout in seconds (default: 60)
-            max_retries: Maximum number of retries (default: 3)
-            fallback_models: List of fallback models to try on failure
-        """
+        """Initialize OpenRouter plugin with API configuration."""
         super().__init__(config)
 
-        # API configuration
         self.api_key = self.config.get("api_key") or os.getenv("OPENROUTER_API_KEY")
-        self.api_base = self.config.get(
-            "api_base", "https://openrouter.ai/api/v1"
-        )
+        self.api_base = self.config.get("api_base", "https://openrouter.ai/api/v1")
         self.default_model = self.config.get("default_model", "openai/gpt-3.5-turbo")
-
-        # Site information (helps OpenRouter improve rankings)
         self.site_url = self.config.get("site_url", "")
         self.site_name = self.config.get("site_name", "Weave")
-
-        # Request configuration
         self.timeout = self.config.get("timeout", 60)
         self.max_retries = self.config.get("max_retries", 3)
         self.fallback_models = self.config.get("fallback_models", [])
 
-        # Validate API key
         if not self.api_key:
             raise ValueError(
-                "OpenRouter API key is required. Set OPENROUTER_API_KEY environment "
-                "variable or provide 'api_key' in plugin configuration. "
+                "OpenRouter API key required. Set OPENROUTER_API_KEY or provide 'api_key'. "
                 "Get your key at: https://openrouter.ai/keys"
             )
 
-    def execute(
-        self, input_data: Any, context: Optional[Dict[str, Any]] = None
-    ) -> Any:
-        """
-        Execute LLM request through OpenRouter.
+    def execute(self, input_data: Any, context: Optional[Dict[str, Any]] = None) -> Any:
+        """Execute LLM request through OpenRouter API."""
+        try:
+            import requests
+        except ImportError:
+            raise ImportError("requests required for OpenRouter. Install: pip install requests")
 
-        Args:
-            input_data: Request payload (dict or string)
-                If dict, should contain:
-                    - messages: List of messages (required)
-                    - model: Model to use (optional, uses default_model)
-                    - temperature: Temperature (optional)
-                    - max_tokens: Max tokens (optional)
-                    - top_p: Top P (optional)
-                    - Other OpenAI-compatible parameters
-                If string, treated as single user message
-            context: Execution context (optional)
-
-        Returns:
-            LLM response dict with:
-                - id: Response ID
-                - model: Model used
-                - choices: List of completion choices
-                - usage: Token usage information
-        """
         # Parse input
         if isinstance(input_data, str):
-            messages = [{"role": "user", "content": input_data}]
-            payload = {"messages": messages}
+            payload = {"messages": [{"role": "user", "content": input_data}]}
         elif isinstance(input_data, dict):
             payload = input_data.copy()
         else:
-            raise ValueError(
-                f"Invalid input type: {type(input_data)}. "
-                "Expected str or dict with 'messages' field."
-            )
+            raise ValueError(f"Invalid input type: {type(input_data)}")
 
-        # Ensure model is specified
-        if "model" not in payload:
-            payload["model"] = self.default_model
-
-        # Add site information for rankings
+        payload.setdefault("model", self.default_model)
         if self.site_url:
             payload.setdefault("site_url", self.site_url)
         if self.site_name:
             payload.setdefault("site_name", self.site_name)
 
-        # Mock response for v0.1.0 (v2.0 will implement actual API calls)
-        model = payload["model"]
-        messages = payload.get("messages", [])
+        # Try models with retries
+        models_to_try = [payload["model"]] + self.fallback_models
+        last_error = None
 
-        # Simulate response
-        response = {
-            "id": "or-mock-id-12345",
-            "model": model,
-            "object": "chat.completion",
-            "created": 1234567890,
-            "choices": [
-                {
-                    "index": 0,
-                    "message": {
-                        "role": "assistant",
-                        "content": self._generate_mock_response(messages, model),
-                    },
-                    "finish_reason": "stop",
-                }
-            ],
-            "usage": {
-                "prompt_tokens": sum(
-                    len(str(m.get("content", "")).split()) for m in messages
-                ),
-                "completion_tokens": 50,
-                "total_tokens": sum(
-                    len(str(m.get("content", "")).split()) for m in messages
-                )
-                + 50,
-            },
+        for model in models_to_try:
+            payload["model"] = model
+            for attempt in range(self.max_retries):
+                try:
+                    return self._make_request(payload, requests)
+                except Exception as e:
+                    last_error = e
+                    if attempt < self.max_retries - 1:
+                        time.sleep(2 ** attempt)  # Exponential backoff
+
+        raise Exception(
+            f"OpenRouter failed after {len(models_to_try)} models, "
+            f"{self.max_retries} retries each. Last error: {last_error}"
+        )
+
+    def _make_request(self, payload: Dict[str, Any], requests: Any) -> Dict[str, Any]:
+        """Make request to OpenRouter API."""
+        url = f"{self.api_base}/chat/completions"
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json",
+            "HTTP-Referer": self.site_url or "https://github.com/weave/weave-cli",
+            "X-Title": self.site_name or "Weave",
         }
 
-        return response
+        response = requests.post(url, json=payload, headers=headers, timeout=self.timeout)
 
-    def _generate_mock_response(self, messages: list, model: str) -> str:
-        """Generate a mock response based on the conversation."""
-        last_message = messages[-1] if messages else {}
-        user_content = str(last_message.get("content", ""))
+        if response.status_code != 200:
+            error_data = response.json() if response.content else {}
+            error_msg = error_data.get("error", {}).get("message", response.text)
+            raise Exception(f"OpenRouter API error ({response.status_code}): {error_msg}")
 
-        return (
-            f"[Mock response from {model} via OpenRouter]\n\n"
-            f"This is a simulated response to: '{user_content[:100]}...'\n\n"
-            f"In v2.0, this will make actual API calls to OpenRouter, "
-            f"which provides unified access to {model} and many other models.\n\n"
-            f"OpenRouter Benefits:\n"
-            f"- Access 100+ models through one API\n"
-            f"- Automatic fallbacks and retries\n"
-            f"- Cost optimization\n"
-            f"- No need for multiple API keys"
-        )
+        return response.json()
 
     def validate_config(self, config: Dict[str, Any]) -> None:
         """Validate plugin configuration."""
-        # Validate timeout
-        if "timeout" in config:
-            timeout = config["timeout"]
-            if not isinstance(timeout, (int, float)) or timeout <= 0:
-                raise ValueError(
-                    f"Invalid timeout: {timeout}. Must be positive number."
-                )
-
-        # Validate max_retries
-        if "max_retries" in config:
-            retries = config["max_retries"]
-            if not isinstance(retries, int) or retries < 0:
-                raise ValueError(
-                    f"Invalid max_retries: {retries}. Must be non-negative integer."
-                )
-
-        # Validate fallback_models
-        if "fallback_models" in config:
-            fallbacks = config["fallback_models"]
-            if not isinstance(fallbacks, list):
-                raise ValueError(
-                    f"Invalid fallback_models: {fallbacks}. Must be a list."
-                )
+        if "timeout" in config and (not isinstance(config["timeout"], (int, float)) or config["timeout"] <= 0):
+            raise ValueError(f"Invalid timeout: {config['timeout']}")
+        if "max_retries" in config and (not isinstance(config["max_retries"], int) or config["max_retries"] < 0):
+            raise ValueError(f"Invalid max_retries: {config['max_retries']}")
+        if "fallback_models" in config and not isinstance(config["fallback_models"], list):
+            raise ValueError("fallback_models must be a list")
 
     def get_available_models(self) -> Dict[str, Any]:
-        """
-        Get list of available models from OpenRouter.
-
-        Returns:
-            Dict with model information including:
-                - id: Model identifier
-                - name: Human-readable name
-                - pricing: Cost per token
-                - context_length: Maximum context size
-        """
-        # Mock response for v0.1.0
-        return {
-            "models": [
-                {
-                    "id": "openai/gpt-4",
-                    "name": "GPT-4",
-                    "pricing": {"prompt": 0.03, "completion": 0.06},
-                    "context_length": 8192,
-                },
-                {
-                    "id": "openai/gpt-3.5-turbo",
-                    "name": "GPT-3.5 Turbo",
-                    "pricing": {"prompt": 0.001, "completion": 0.002},
-                    "context_length": 4096,
-                },
-                {
-                    "id": "anthropic/claude-3-opus",
-                    "name": "Claude 3 Opus",
-                    "pricing": {"prompt": 0.015, "completion": 0.075},
-                    "context_length": 200000,
-                },
-                {
-                    "id": "google/gemini-pro",
-                    "name": "Gemini Pro",
-                    "pricing": {"prompt": 0.0005, "completion": 0.0015},
-                    "context_length": 32768,
-                },
-                {
-                    "id": "meta-llama/llama-2-70b-chat",
-                    "name": "Llama 2 70B Chat",
-                    "pricing": {"prompt": 0.0007, "completion": 0.0009},
-                    "context_length": 4096,
-                },
-            ]
-        }
-
-    def estimate_cost(self, prompt_tokens: int, completion_tokens: int, model: str) -> float:
-        """
-        Estimate cost for a request.
-
-        Args:
-            prompt_tokens: Number of input tokens
-            completion_tokens: Number of output tokens
-            model: Model identifier
-
-        Returns:
-            Estimated cost in USD
-        """
-        # Mock pricing for v0.1.0
-        pricing = {
-            "openai/gpt-4": {"prompt": 0.03, "completion": 0.06},
-            "openai/gpt-3.5-turbo": {"prompt": 0.001, "completion": 0.002},
-            "anthropic/claude-3-opus": {"prompt": 0.015, "completion": 0.075},
-            "google/gemini-pro": {"prompt": 0.0005, "completion": 0.0015},
-        }
-
-        model_pricing = pricing.get(model, {"prompt": 0.001, "completion": 0.002})
-
-        prompt_cost = (prompt_tokens / 1000) * model_pricing["prompt"]
-        completion_cost = (completion_tokens / 1000) * model_pricing["completion"]
-
-        return prompt_cost + completion_cost
+        """Get list of available models from OpenRouter."""
+        try:
+            import requests
+            url = f"{self.api_base}/models"
+            headers = {"Authorization": f"Bearer {self.api_key}"}
+            response = requests.get(url, headers=headers, timeout=10)
+            if response.status_code == 200:
+                return response.json()
+            raise Exception(f"Failed to fetch models: {response.status_code}")
+        except Exception as e:
+            return {"error": str(e), "message": "Failed to fetch models from OpenRouter API"}
 
     def __str__(self) -> str:
-        return f"OpenRouter Plugin (default_model: {self.default_model})"
+        return f"OpenRouter Plugin (model: {self.default_model})"

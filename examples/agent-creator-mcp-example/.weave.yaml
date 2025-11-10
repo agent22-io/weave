@@ -1,0 +1,47 @@
+version: "1.0"
+
+# Agent Creator Example using MCP Server
+# This configuration demonstrates using an MCP server to interactively
+# create Weave agent configurations by asking questions
+
+agents:
+  agent_designer:
+    # The meta-agent that uses the MCP server to create other agents
+    model: "gpt-4"
+    description: "Interactive agent that helps design new Weave agents"
+    tools: [agent_creator_mcp]
+    outputs: "agent_configuration"
+    config:
+      temperature: 0.3  # Lower temperature for more structured responses
+      max_tokens: 2000
+
+  configuration_validator:
+    # Validates the generated agent configuration
+    model: "gpt-3.5-turbo"
+    description: "Validates and provides feedback on agent configurations"
+    inputs: "agent_designer"
+    outputs: "validation_report"
+    config:
+      temperature: 0.2
+
+weaves:
+  interactive_agent_creation:
+    description: "Create a new agent through interactive questioning"
+    agents: [agent_designer]
+
+  validated_agent_creation:
+    description: "Create and validate a new agent configuration"
+    agents: [agent_designer, configuration_validator]
+
+# MCP Configuration
+# Add this to your ~/.weave/mcp_config.json:
+#
+# {
+#   "mcpServers": {
+#     "agent_creator_mcp": {
+#       "command": "python",
+#       "args": ["/path/to/agent_creator_server.py"],
+#       "description": "Interactive agent creation through guided questions"
+#     }
+#   }
+# }

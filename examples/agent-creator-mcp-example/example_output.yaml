@@ -1,0 +1,57 @@
+# Example Generated Agent Configuration
+# Created using the Agent Creator MCP Server
+
+version: "1.0"
+
+agents:
+  research_summarizer:
+    # Analyzes research papers and creates concise summaries that highlight
+    # key findings, methodology, and conclusions for quick understanding
+    model: "claude-3-sonnet"
+    tools: [text_length, string_formatter]
+    outputs: "paper_summary"
+    config:
+      temperature: 0.3
+      max_tokens: 1500
+
+# This configuration was generated through an interactive Q&A session:
+# 1. Agent Name: research_summarizer
+# 2. Description: Analyzes research papers and creates concise summaries...
+# 3. Model: claude-3-sonnet (balanced performance)
+# 4. Tools: text_length, string_formatter (for text processing)
+# 5. Temperature: 0.3 (more deterministic/factual)
+# 6. Max Tokens: 1500 (medium-length summaries)
+# 7. Inputs: None (standalone agent)
+# 8. Outputs: paper_summary
+
+# Usage:
+#   weave plan                  # Preview execution
+#   weave apply --real          # Execute with real LLM
+
+# To extend this into a workflow, you could add more agents:
+#
+# agents:
+#   paper_fetcher:
+#     model: "gpt-3.5-turbo"
+#     tools: [web_search]
+#     outputs: "raw_paper"
+#
+#   research_summarizer:
+#     model: "claude-3-sonnet"
+#     tools: [text_length, string_formatter]
+#     inputs: "paper_fetcher"
+#     outputs: "paper_summary"
+#     config:
+#       temperature: 0.3
+#       max_tokens: 1500
+#
+#   citation_extractor:
+#     model: "gpt-3.5-turbo"
+#     tools: [json_validator]
+#     inputs: "research_summarizer"
+#     outputs: "citations"
+#
+# weaves:
+#   research_pipeline:
+#     description: "Fetch, summarize, and extract citations from papers"
+#     agents: [paper_fetcher, research_summarizer, citation_extractor]

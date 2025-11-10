@@ -3,6 +3,7 @@
 This module provides:
 - Short-term memory: Buffer and sliding window strategies for conversation management
 - Long-term memory: Simple markdown-based persistent storage for important facts
+- Auto-compact: Automatic summarization when context exceeds token limits
 """
 
 import os
@@ -12,6 +13,35 @@ from typing import Any, Dict, List, Optional
 from dataclasses import dataclass, field
 
 from weave.core.sessions import ConversationMessage, ConversationSession
+
+
+def estimate_tokens(text: str) -> int:
+    """Estimate token count from text.
+
+    Uses a simple heuristic: ~4 characters per token for English text.
+    This is approximate but sufficient for memory management.
+
+    Args:
+        text: Text to estimate tokens for
+
+    Returns:
+        Estimated token count
+    """
+    if not text:
+        return 0
+    return len(text) // 4
+
+
+def count_message_tokens(messages: List[ConversationMessage]) -> int:
+    """Count total tokens in a list of messages.
+
+    Args:
+        messages: List of conversation messages
+
+    Returns:
+        Total estimated token count
+    """
+    return sum(estimate_tokens(msg.content) for msg in messages)
 
 
 @dataclass
@@ -46,32 +76,127 @@ class Memory:
 class ShortTermMemory:
     """Manages short-term memory (conversation context) with different strategies."""
 
-    def __init__(self, strategy: str = "buffer", max_messages: int = 100):
+    def __init__(
+        self,
+        strategy: str = "buffer",
+        max_messages: int = 100,
+        context_window: int = 4000,
+        summarize_after: Optional[int] = None,
+    ):
         """Initialize short-term memory.
 
         Args:
-            strategy: Memory strategy ("buffer" or "sliding_window")
+            strategy: Memory strategy ("buffer", "sliding_window", or "auto_compact")
             max_messages: Maximum messages to keep
+            context_window: Maximum tokens to keep in context
+            summarize_after: Summarize after N messages (None = use context_window)
         """
         self.strategy = strategy
         self.max_messages = max_messages
+        self.context_window = context_window
+        self.summarize_after = summarize_after
+        self.summary_message: Optional[ConversationMessage] = None
 
-    def apply_strategy(self, messages: List[ConversationMessage]) -> List[ConversationMessage]:
+    def apply_strategy(
+        self, messages: List[ConversationMessage], auto_compact: bool = True
+    ) -> List[ConversationMessage]:
         """Apply memory strategy to message list.
 
         Args:
             messages: Full message list
+            auto_compact: Whether to apply auto-compaction based on token limits
 
         Returns:
             Filtered message list according to strategy
         """
-        if self.strategy == "buffer":
+        # Check if auto-compact is needed
+        if auto_compact and self._should_compact(messages):
+            messages = self._compact_messages(messages)
+
+        # Apply selected strategy
+        if self.strategy == "buffer" or self.strategy == "auto_compact":
             return self._apply_buffer(messages)
         elif self.strategy == "sliding_window":
             return self._apply_sliding_window(messages)
         else:
             # Default to buffer
             return self._apply_buffer(messages)
+
+    def _should_compact(self, messages: List[ConversationMessage]) -> bool:
+        """Check if messages should be compacted.
+
+        Args:
+            messages: Message list to check
+
+        Returns:
+            True if compaction is needed
+        """
+        # Skip if we have a summary already or too few messages
+        if self.summary_message or len(messages) < 5:
+            return False
+
+        # Check token count
+        token_count = count_message_tokens(messages)
+        if token_count > self.context_window:
+            return True
+
+        # Check message count if summarize_after is set
+        if self.summarize_after and len(messages) > self.summarize_after:
+            return True
+
+        return False
+
+    def _compact_messages(
+        self, messages: List[ConversationMessage]
+    ) -> List[ConversationMessage]:
+        """Compact messages by summarizing old ones.
+
+        Strategy:
+        - Keep system messages
+        - Keep last 10 messages (configurable)
+        - Summarize the rest into a single message
+
+        Args:
+            messages: Full message list
+
+        Returns:
+            Compacted message list with summary
+        """
+        if len(messages) <= 10:
+            return messages
+
+        # Separate system messages and conversation messages
+        system_messages = [msg for msg in messages if msg.role == "system"]
+        conversation_messages = [msg for msg in messages if msg.role != "system"]
+
+        # Keep last 10 conversation messages
+        recent_messages = conversation_messages[-10:]
+        old_messages = conversation_messages[:-10]
+
+        if not old_messages:
+            return messages
+
+        # Create summary of old messages
+        summary_parts = ["## Conversation Summary"]
+        summary_parts.append(
+            f"The following is a summary of {len(old_messages)} earlier messages:\n"
+        )
+
+        # Group by role and create concise summary
+        for msg in old_messages[::2]:  # Sample every other message to keep summary short
+            role = msg.role.title()
+            content_preview = msg.content[:200] + (
+                "..." if len(msg.content) > 200 else ""
+            )
+            summary_parts.append(f"- {role}: {content_preview}")
+
+        summary_content = "\n".join(summary_parts)
+        self.summary_message = ConversationMessage(
+            role="system", content=summary_content, timestamp=time.time()
+        )
+
+        # Return: system messages + summary + recent messages
+        return system_messages + [self.summary_message] + recent_messages
 
     def _apply_buffer(self, messages: List[ConversationMessage]) -> List[ConversationMessage]:
         """Buffer strategy: Keep system message + last N messages.
@@ -207,6 +332,8 @@ class MemoryManager:
         agent_name: str,
         strategy: str = "buffer",
         max_messages: int = 100,
+        context_window: int = 4000,
+        summarize_after: Optional[int] = None,
         persist: bool = False,
         memory_dir: Optional[Path] = None,
     ):
@@ -216,11 +343,18 @@ class MemoryManager:
             agent_name: Name of the agent
             strategy: Short-term memory strategy
             max_messages: Maximum messages to keep in short-term memory
+            context_window: Maximum tokens to keep in context
+            summarize_after: Summarize after N messages (None = use context_window)
             persist: Whether to enable long-term memory persistence
             memory_dir: Directory for long-term memory storage
         """
         self.agent_name = agent_name
-        self.short_term = ShortTermMemory(strategy=strategy, max_messages=max_messages)
+        self.short_term = ShortTermMemory(
+            strategy=strategy,
+            max_messages=max_messages,
+            context_window=context_window,
+            summarize_after=summarize_after,
+        )
         self.long_term = LongTermMemory(memory_dir=memory_dir) if persist else None
         self.persist = persist
 

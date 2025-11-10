@@ -69,12 +69,11 @@ class ModelConfig(BaseModel):
 class MemoryConfig(BaseModel):
     """Memory configuration for an agent."""
 
-    type: str = "buffer"  # buffer, summary, sliding_window, vector
+    type: str = "buffer"  # buffer, summary, sliding_window, auto_compact
     max_messages: int = 100  # Maximum messages to keep in memory
-    summarize_after: Optional[int] = None  # Summarize after N messages
-    context_window: int = 4000  # Context window size in tokens
+    summarize_after: Optional[int] = None  # Summarize after N messages (None = use context_window)
+    context_window: int = 4000  # Context window size in tokens - triggers auto-compact when exceeded
     persist: bool = False  # Save memory to storage
-    storage_key: Optional[str] = None  # Key for memory storage
 
 
 class StorageConfig(BaseModel):

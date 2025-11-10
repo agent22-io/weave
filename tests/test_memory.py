@@ -8,6 +8,8 @@ from weave.core.memory import (
     ShortTermMemory,
     LongTermMemory,
     MemoryManager,
+    estimate_tokens,
+    count_message_tokens,
 )
 from weave.core.sessions import ConversationSession, ConversationMessage
 
@@ -324,3 +326,181 @@ class TestMemoryIntegration:
         # Retrieve long-term context
         context = manager.get_long_term_context()
         assert "Python programming" in context
+
+
+class TestTokenCounting:
+    """Test token counting utilities."""
+
+    def test_estimate_tokens_empty_string(self):
+        """Empty string should have 0 tokens."""
+        assert estimate_tokens("") == 0
+        assert estimate_tokens(None) == 0
+
+    def test_estimate_tokens_short_text(self):
+        """Short text should estimate tokens correctly."""
+        text = "Hello world"  # 11 chars
+        tokens = estimate_tokens(text)
+        assert tokens == 2  # 11 // 4 = 2
+
+    def test_estimate_tokens_longer_text(self):
+        """Longer text should estimate tokens correctly."""
+        text = "This is a longer piece of text that should have more tokens"  # 60 chars
+        tokens = estimate_tokens(text)
+        assert tokens == 15  # 60 // 4 = 15
+
+    def test_count_message_tokens(self):
+        """Should count tokens across multiple messages."""
+        messages = [
+            ConversationMessage(role="user", content="Hello"),  # 5 chars = 1 token
+            ConversationMessage(role="assistant", content="Hi there"),  # 8 chars = 2 tokens
+            ConversationMessage(role="user", content="How are you?"),  # 12 chars = 3 tokens
+        ]
+
+        total_tokens = count_message_tokens(messages)
+        assert total_tokens == 6  # 1 + 2 + 3
+
+
+class TestAutoCompact:
+    """Test auto-compact functionality."""
+
+    def test_should_not_compact_with_few_messages(self):
+        """Should not compact when messages are below threshold."""
+        stm = ShortTermMemory(
+            strategy="buffer",
+            max_messages=100,
+            context_window=1000,
+            summarize_after=None,
+        )
+
+        messages = [
+            ConversationMessage(role="user", content="Hello"),
+            ConversationMessage(role="assistant", content="Hi"),
+        ]
+
+        # Should not compact
+        assert not stm._should_compact(messages)
+
+    def test_should_compact_when_exceeds_token_limit(self):
+        """Should compact when token count exceeds context_window."""
+        stm = ShortTermMemory(
+            strategy="buffer",
+            max_messages=100,
+            context_window=50,  # Very low limit
+            summarize_after=None,
+        )
+
+        # Create messages that exceed token limit
+        messages = [
+            ConversationMessage(
+                role="user",
+                content="This is a very long message " * 10,  # ~280 chars = ~70 tokens
+            )
+        ]
+
+        # Should trigger compaction
+        assert stm._should_compact(messages)
+
+    def test_should_compact_when_exceeds_message_count(self):
+        """Should compact when message count exceeds summarize_after."""
+        stm = ShortTermMemory(
+            strategy="buffer",
+            max_messages=100,
+            context_window=10000,  # High token limit
+            summarize_after=5,  # Low message limit
+        )
+
+        # Create 10 short messages
+        messages = [
+            ConversationMessage(role="user", content=f"Message {i}") for i in range(10)
+        ]
+
+        # Should trigger compaction due to message count
+        assert stm._should_compact(messages)
+
+    def test_compact_messages_creates_summary(self):
+        """Compacting should create a summary message."""
+        stm = ShortTermMemory(
+            strategy="buffer",
+            max_messages=100,
+            context_window=100,  # Low limit to trigger compaction
+        )
+
+        # Create many messages
+        messages = [ConversationMessage(role="system", content="System prompt")]
+        for i in range(20):
+            messages.append(
+                ConversationMessage(
+                    role="user", content=f"This is a longer message number {i} with some content"
+                )
+            )
+            messages.append(ConversationMessage(role="assistant", content=f"Response {i}"))
+
+        # Compact messages
+        compacted = stm._compact_messages(messages)
+
+        # Should have: system messages + summary + last 10 conversation messages
+        # System (1) + summary (1) + last 10 conversation messages (10) = 12
+        assert len(compacted) <= 20  # Should be less than original
+        assert any("Conversation Summary" in msg.content for msg in compacted)
+
+    def test_auto_compact_integration(self):
+        """Test auto-compact in apply_strategy."""
+        stm = ShortTermMemory(
+            strategy="buffer",
+            max_messages=100,
+            context_window=50,  # Very low limit
+            summarize_after=None,
+        )
+
+        # Create messages exceeding token limit
+        messages = [ConversationMessage(role="system", content="System prompt")]
+        for i in range(15):
+            messages.append(
+                ConversationMessage(
+                    role="user", content=f"This is a longer message {i} with content " * 3
+                )
+            )
+
+        # Apply strategy with auto_compact
+        filtered = stm.apply_strategy(messages, auto_compact=True)
+
+        # Should have been compacted
+        assert len(filtered) < len(messages)
+
+    def test_auto_compact_disabled(self):
+        """Auto-compact can be disabled."""
+        stm = ShortTermMemory(
+            strategy="buffer",
+            max_messages=100,
+            context_window=50,  # Very low limit
+            summarize_after=None,
+        )
+
+        # Create messages exceeding token limit
+        messages = [
+            ConversationMessage(
+                role="user",
+                content="This is a very long message " * 10,  # Exceeds limit
+            )
+        ]
+
+        # Apply strategy with auto_compact disabled
+        filtered = stm.apply_strategy(messages, auto_compact=False)
+
+        # Should not have been compacted
+        assert len(filtered) == len(messages)
+
+    def test_memory_manager_with_auto_compact_config(self, tmp_path):
+        """Memory manager should use context_window and summarize_after."""
+        manager = MemoryManager(
+            agent_name="test_agent",
+            strategy="buffer",
+            max_messages=100,
+            context_window=1000,
+            summarize_after=20,
+            persist=False,
+        )
+
+        # Check that parameters were passed to ShortTermMemory
+        assert manager.short_term.context_window == 1000
+        assert manager.short_term.summarize_after == 20

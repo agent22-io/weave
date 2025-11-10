@@ -101,19 +101,55 @@ Another memory entry.
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `type` | string | "buffer" | Memory strategy: "buffer" or "sliding_window" |
+| `type` | string | "buffer" | Memory strategy: "buffer", "sliding_window", or "auto_compact" |
 | `max_messages` | int | 100 | Maximum messages to keep in short-term memory |
 | `persist` | bool | false | Whether to save long-term memory |
-| `context_window` | int | 4000 | Context window size in tokens |
-| `storage_key` | string | null | Optional custom storage key |
+| `context_window` | int | 4000 | Context window size in tokens - triggers auto-compact when exceeded |
+| `summarize_after` | int | null | Auto-compact after N messages (null = use context_window) |
+
+## Auto-Compact Feature
+
+Auto-compact automatically manages conversation context by summarizing old messages when limits are exceeded. This prevents token limits from being reached while preserving conversation history.
+
+### How Auto-Compact Works
+
+1. **Token Counting**: Tracks approximate token usage in conversation history
+2. **Threshold Detection**: Triggers when either:
+   - Total tokens exceed `context_window`, OR
+   - Message count exceeds `summarize_after` (if set)
+3. **Smart Summarization**:
+   - Keeps all system messages (important instructions)
+   - Keeps last 10 conversation messages (recent context)
+   - Summarizes older messages into a concise summary
+   - Injects summary as a system message
+
+### Example Configuration
+
+```yaml
+memory:
+  type: "buffer"
+  max_messages: 100
+  context_window: 4000      # Trigger when tokens exceed 4000
+  summarize_after: 50       # Also trigger after 50 messages
+  persist: true
+```
+
+### When to Use Auto-Compact
+
+- **Long conversations**: Maintain context without hitting token limits
+- **Streaming applications**: Keep memory footprint manageable
+- **Cost optimization**: Reduce token usage by compacting history
+- **Multi-turn interactions**: Preserve important context over many exchanges
 
 ## Best Practices
 
 1. **Use buffer strategy** for agents that need to remember system instructions
 2. **Use sliding window** for stateless processing tasks
 3. **Enable persistence** for agents that should learn from conversations
-4. **Set appropriate max_messages** based on your model's context window
-5. **Tag memories** for better organization and retrieval
+4. **Configure auto-compact** with `context_window` for long conversations
+5. **Set appropriate max_messages** based on your model's context window
+6. **Use summarize_after** for predictable compaction at message thresholds
+7. **Tag memories** for better organization and retrieval
 
 ## How It Works
 

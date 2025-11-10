@@ -383,6 +383,8 @@ class Executor:
                     agent_name=agent_name,
                     strategy=agent.memory.type,
                     max_messages=agent.memory.max_messages,
+                    context_window=agent.memory.context_window,
+                    summarize_after=agent.memory.summarize_after,
                     persist=agent.memory.persist,
                 )
                 self.memory_managers[agent_name] = memory_manager

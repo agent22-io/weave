@@ -5,22 +5,42 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "weave-cli"
 version = "0.1.0"
-description = "Declarative agent orchestration framework"
+description = "Declarative agent orchestration framework with LLM execution and cloud deployment"
 readme = "README.md"
 requires-python = ">=3.9"
+license = {text = "MIT"}
 authors = [
     {name = "Weave Team", email = "hello@weave.dev"}
 ]
-keywords = ["ai", "agents", "orchestration", "cli", "workflow"]
+maintainers = [
+    {name = "Weave Team", email = "hello@weave.dev"}
+]
+keywords = [
+    "ai",
+    "agents",
+    "llm",
+    "orchestration",
+    "cli",
+    "workflow",
+    "openai",
+    "anthropic",
+    "aws",
+    "gcp",
+    "deployment"
+]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
     "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3 :: Only",
 ]
 
 dependencies = [

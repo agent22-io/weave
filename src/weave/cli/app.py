@@ -1154,6 +1154,93 @@ def undeploy(
         raise typer.Exit(1)
 
 
+@app.command()
+def setup(
+    skip_keys: bool = typer.Option(False, "--skip-keys", help="Skip API key configuration"),
+    skip_completion: bool = typer.Option(False, "--skip-completion", help="Skip shell completion"),
+    skip_example: bool = typer.Option(False, "--skip-example", help="Skip example project"),
+) -> None:
+    """
+    Run setup wizard for first-time configuration.
+
+    Interactive wizard to configure Weave, install shell completion,
+    and create example projects.
+    """
+    try:
+        from .setup import run_setup_wizard
+
+        run_setup_wizard(console=console)
+
+    except Exception as e:
+        output.print_error(e)
+        raise typer.Exit(1)
+
+
+@app.command()
+def completion(
+    shell: str = typer.Argument(None, help="Shell to install for (bash, zsh, fish)"),
+    install: bool = typer.Option(False, "--install", help="Install completion"),
+    show: bool = typer.Option(False, "--show", help="Show completion script"),
+) -> None:
+    """
+    Manage shell completion for Weave.
+
+    Install tab-completion for bash, zsh, or fish shells.
+    """
+    try:
+        from .completion import install_completion, show_completion_script
+        import os
+
+        # Auto-detect shell if not specified
+        if not shell:
+            shell = os.environ.get("SHELL", "").split("/")[-1]
+            if shell not in ["bash", "zsh", "fish"]:
+                console.print("[red]Could not detect shell. Please specify:[/red]")
+                console.print("  weave completion bash --install")
+                console.print("  weave completion zsh --install")
+                console.print("  weave completion fish --install")
+                raise typer.Exit(1)
+
+        # Show script
+        if show:
+            show_completion_script(shell, console)
+            return
+
+        # Install completion
+        if install:
+            install_completion(shell, console)
+            return
+
+        # Default: show instructions
+        console.print(f"\n[bold]Shell Completion for {shell}[/bold]\n")
+        console.print("To install completion, run:")
+        console.print(f"  [cyan]weave completion {shell} --install[/cyan]\n")
+        console.print("To see the completion script:")
+        console.print(f"  [cyan]weave completion {shell} --show[/cyan]\n")
+
+    except Exception as e:
+        output.print_error(e)
+        raise typer.Exit(1)
+
+
+@app.command()
+def doctor() -> None:
+    """
+    Check installation and show diagnostic information.
+
+    Verifies Weave installation, checks dependencies, and provides
+    troubleshooting recommendations.
+    """
+    try:
+        from .setup import check_installation
+
+        check_installation(console=console)
+
+    except Exception as e:
+        output.print_error(e)
+        raise typer.Exit(1)
+
+
 def main() -> None:
     """Entry point for the CLI."""
     app()

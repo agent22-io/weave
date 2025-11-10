@@ -41,70 +41,86 @@ Weave allows you to define and compose AI agents using YAML configuration files 
 
 ## 📦 Installation
 
-### Basic Installation (Mock Mode)
+### Quick Install (Recommended)
 
 ```bash
-# Clone the repository
+# One-command installation with interactive setup
+curl -fsSL https://weave.dev/install.sh | bash
+
+# Then run the setup wizard
+weave setup
+```
+
+### Manual Installation
+
+#### From Source
+
+```bash
+# Clone and install
 git clone https://github.com/weave/weave-cli.git
 cd weave-cli
-
-# Install core dependencies
 pip install -e .
 
-# Verify installation
-weave --version
+# Run setup wizard
+weave setup
+
+# Install shell completion
+weave completion bash --install
 ```
 
-### With Real LLM Support (V2)
+#### Using pip (coming soon)
 
 ```bash
-# Install with LLM providers
-pip install -e ".[llm]"
-
-# Or install specific providers
-pip install -e . openai anthropic
-```
-
-### With Development Tools
-
-```bash
-# Install with file watching for dev mode
-pip install -e ".[watch]"
-
-# Or install all optional features
-pip install -e ".[all]"
-```
-
-### With Cloud Deployment (V3)
-
-```bash
-# AWS deployment
-pip install -e ".[aws]"
-
-# GCP deployment
-pip install -e ".[gcp]"
-
-# Docker deployment
-pip install -e ".[docker]"
-
-# All deployment providers
-pip install -e ".[deploy]"
-```
-
-### Using pip (coming soon)
-
-```bash
-# Basic
+# Basic installation
 pip install weave-cli
-
-# With real LLM support
-pip install weave-cli[llm]
-
-# With deployment
-pip install weave-cli[deploy]
 
 # With all features
 pip install weave-cli[all]
+```
+
+### Optional Features
+
+Install additional capabilities as needed:
+
+```bash
+# Real LLM execution (OpenAI, Anthropic)
+pip install weave-cli[llm]
+
+# Cloud deployment (AWS, GCP, Docker)
+pip install weave-cli[deploy]
+
+# Development mode (auto-reload)
+pip install weave-cli[watch]
+
+# Everything
+pip install weave-cli[all]
+```
+
+### Post-Install Setup
+
+After installation, run the interactive setup wizard:
+
+```bash
+weave setup
+```
+
+This will:
+- ✓ Configure API keys for LLM providers
+- ✓ Install shell completion (bash/zsh/fish)
+- ✓ Create example project
+- ✓ Set up configuration directory
+
+Or use individual setup commands:
+
+```bash
+# Check installation status
+weave doctor
+
+# Install shell completion only
+weave completion bash --install
+
+# Create example project
+weave init
 ```
 
 ## 🚀 Quick Start

@@ -1,0 +1,93 @@
+version: "1.0"
+
+# Example: Agent workflow with tool calling
+# This demonstrates using built-in tools and custom tool definitions
+
+# Optional: Custom tool definitions
+tools:
+  email_sender:
+    description: Send emails to recipients
+    category: communication
+    tags: [email, messaging]
+    parameters:
+      to:
+        type: string
+        description: Email recipient address
+        required: true
+      subject:
+        type: string
+        description: Email subject line
+        required: true
+      body:
+        type: string
+        description: Email body content
+        required: true
+      priority:
+        type: string
+        description: Email priority level
+        required: false
+        default: normal
+        enum: [low, normal, high, urgent]
+
+  data_validator:
+    description: Validate data against schema
+    category: data
+    tags: [validation, schema]
+    parameters:
+      data:
+        type: object
+        description: Data to validate
+        required: true
+      schema_type:
+        type: string
+        description: Type of schema (json, xml, yaml)
+        required: true
+        enum: [json, xml, yaml]
+
+agents:
+  # Data collector - uses built-in tools
+  data_collector:
+    model: "gpt-4"
+    tools:
+      - calculator        # Built-in math tool
+      - text_length      # Built-in text analysis
+      - json_validator   # Built-in JSON tool
+    outputs: "raw_data"
+
+  # Data processor - uses custom and built-in tools
+  data_processor:
+    model: "claude-3-opus"
+    inputs: "data_collector"
+    tools:
+      - calculator
+      - list_operations    # Built-in list tool
+      - data_validator     # Custom tool defined above
+    config:
+      temperature: 0.3  # Lower temp for precise processing
+    outputs: "processed_data"
+
+  # Report generator - uses formatting tools
+  report_generator:
+    model: "gpt-4"
+    inputs: "data_processor"
+    tools:
+      - string_formatter   # Built-in string tool
+      - text_length
+    outputs: "report"
+
+  # Notifier - uses custom communication tool
+  notifier:
+    model: "gpt-4"
+    inputs: "report_generator"
+    tools:
+      - email_sender       # Custom tool defined above
+    outputs: "notification_status"
+
+weaves:
+  data_pipeline:
+    description: "Collect, process, and report on data with tool assistance"
+    agents:
+      - data_collector
+      - data_processor
+      - report_generator
+      - notifier

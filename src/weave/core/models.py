@@ -2,6 +2,7 @@
 
 from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field, field_validator, model_validator, ConfigDict
+from enum import Enum
 
 
 class AgentConfig(BaseModel):
@@ -56,17 +57,38 @@ class Weave(BaseModel):
         return v
 
 
+class ToolParameterDef(BaseModel):
+    """Tool parameter definition for YAML config."""
+
+    type: str  # string, number, integer, boolean, array, object
+    description: str = ""
+    required: bool = True
+    default: Optional[Any] = None
+    enum: Optional[List[Any]] = None
+
+
+class CustomToolDef(BaseModel):
+    """Custom tool definition for YAML config."""
+
+    description: str
+    parameters: Dict[str, ToolParameterDef] = Field(default_factory=dict)
+    category: str = "general"
+    tags: List[str] = Field(default_factory=list)
+    handler: Optional[str] = None  # Python module path (e.g., "mymodule.my_function")
+
+
 class WeaveConfig(BaseModel):
     """Complete Weave configuration file."""
 
     version: str = "1.0"
     env: Dict[str, str] = Field(default_factory=dict)
+    tools: Dict[str, CustomToolDef] = Field(default_factory=dict)  # Custom tool definitions
     agents: Dict[str, Agent]
     weaves: Dict[str, Weave]
 
     @model_validator(mode="after")
     def validate_references(self) -> "WeaveConfig":
-        """Validate all agent references are valid."""
+        """Validate all agent references and tool definitions are valid."""
         agent_names = set(self.agents.keys())
 
         # Inject agent names into agent objects
@@ -88,6 +110,12 @@ class WeaveConfig(BaseModel):
                     raise ValueError(
                         f"Weave '{weave_name}' references unknown agent '{agent_name}'"
                     )
+
+        # Note: We don't validate tool names here because:
+        # 1. Built-in tools are loaded at runtime
+        # 2. MCP tools come from external servers
+        # 3. Tool availability can change dynamically
+        # Tool validation happens during execution instead
 
         return self
 

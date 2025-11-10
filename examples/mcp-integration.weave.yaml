@@ -1,0 +1,84 @@
+version: "1.0"
+
+# Example: Using MCP (Model Context Protocol) tools
+# This demonstrates integrating external MCP servers for extended functionality
+#
+# Prerequisites:
+# 1. Initialize MCP configuration: weave mcp --init
+# 2. Enable desired MCP servers in .weave/mcp.yaml
+# 3. Set required environment variables (e.g., GITHUB_TOKEN)
+
+agents:
+  # File analyzer - uses filesystem MCP server
+  file_analyzer:
+    model: "gpt-4"
+    tools:
+      - read_file        # From filesystem MCP server
+      - list_files       # From filesystem MCP server
+      - text_length      # Built-in tool
+    outputs: "file_analysis"
+
+  # Web researcher - uses web MCP server
+  web_researcher:
+    model: "claude-3-opus"
+    inputs: "file_analyzer"
+    tools:
+      - fetch_url        # From web MCP server
+      - extract_links    # From web MCP server
+      - json_validator   # Built-in tool
+    outputs: "research_data"
+
+  # Code reviewer - uses GitHub MCP server
+  code_reviewer:
+    model: "gpt-4"
+    inputs: "web_researcher"
+    tools:
+      - get_repository   # From GitHub MCP server
+      - list_issues      # From GitHub MCP server
+      - search_code      # From GitHub MCP server
+      - string_formatter # Built-in tool
+    outputs: "code_review"
+
+  # Data analyst - uses database MCP server
+  data_analyst:
+    model: "claude-3-opus"
+    inputs: "code_reviewer"
+    tools:
+      - query_database   # From database MCP server
+      - list_tables      # From database MCP server
+      - calculator       # Built-in tool
+      - list_operations  # Built-in tool
+    outputs: "analysis_results"
+
+  # Report writer - combines all inputs
+  report_writer:
+    model: "gpt-4"
+    inputs: "data_analyst"
+    tools:
+      - write_file       # From filesystem MCP server
+      - string_formatter # Built-in tool
+    outputs: "final_report"
+
+weaves:
+  mcp_workflow:
+    description: "Complex workflow using multiple MCP servers"
+    agents:
+      - file_analyzer
+      - web_researcher
+      - code_reviewer
+      - data_analyst
+      - report_writer
+
+  # Alternative: Simpler web-only workflow
+  web_only:
+    description: "Focus on web research tasks"
+    agents:
+      - web_researcher
+      - report_writer
+
+  # Alternative: GitHub-focused workflow
+  github_only:
+    description: "GitHub code analysis workflow"
+    agents:
+      - code_reviewer
+      - report_writer

@@ -19,6 +19,8 @@ Welcome to the Weave CLI documentation! Weave is a declarative agent orchestrati
 - [Dependency Management](guides/dependencies.md) - Managing agent dependencies
 - [Environment Variables](guides/environment.md) - Using environment variables
 - [Visualization](guides/visualization.md) - Working with graphs
+- [Tool Calling](guides/tool-calling.md) - Using built-in and custom tools
+- [MCP Integration](guides/mcp.md) - Model Context Protocol servers
 - [Plugins](guides/plugins.md) - Extending Weave with custom tools
 - [Resources](guides/resources.md) - Managing prompts, skills, and knowledge bases
 

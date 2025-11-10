@@ -237,7 +237,7 @@ def apply(
         graph.validate()
 
         # Execute
-        executor = MockExecutor(console=console, verbose=verbose)
+        executor = MockExecutor(console=console, verbose=verbose, config=weave_config)
         summary = executor.execute_flow(graph, weave_name, dry_run=dry_run)
 
         # Exit with error if any failed
@@ -438,6 +438,188 @@ def resources(
 
         if total == 0:
             console.print("[yellow]No resources found. Use --create to initialize.[/yellow]\n")
+
+    except Exception as e:
+        output.print_error(e)
+        raise typer.Exit(1)
+
+
+@app.command()
+def tools(
+    category: Optional[str] = typer.Option(None, "--category", "-c", help="Filter by category"),
+    tags: Optional[str] = typer.Option(None, "--tags", "-t", help="Filter by tags (comma-separated)"),
+    schema: Optional[str] = typer.Option(None, "--schema", "-s", help="Show JSON schema for a specific tool"),
+) -> None:
+    """
+    List and inspect available tools for agents.
+
+    Shows built-in tools and tools from configured MCP servers.
+    """
+    try:
+        from ..tools.executor import ToolExecutor
+        from rich.table import Table
+        from rich.json import JSON
+        import json as json_module
+
+        executor = ToolExecutor()
+
+        # Show schema for specific tool
+        if schema:
+            tool = executor.get_tool(schema)
+            if not tool:
+                console.print(f"[red]Tool not found: {schema}[/red]")
+                raise typer.Exit(1)
+
+            console.print(f"\n[bold cyan]Tool Schema: {schema}[/bold cyan]\n")
+            schema_json = tool.definition.to_json_schema()
+            console.print(JSON(json_module.dumps(schema_json, indent=2)))
+            console.print()
+            return
+
+        # Parse tags filter
+        tags_list = None
+        if tags:
+            tags_list = [t.strip() for t in tags.split(",")]
+
+        # Get tools
+        tool_defs = executor.list_tools(category=category, tags=tags_list)
+
+        if not tool_defs:
+            console.print("[yellow]No tools found matching the criteria.[/yellow]")
+            raise typer.Exit(0)
+
+        # Create table
+        table = Table(title="Available Tools", show_header=True, header_style="bold magenta")
+        table.add_column("Name", style="cyan", no_wrap=True)
+        table.add_column("Category", style="green")
+        table.add_column("Description", style="white")
+        table.add_column("Source", style="yellow")
+
+        for tool_def in sorted(tool_defs, key=lambda t: t.name):
+            source = tool_def.mcp_server if tool_def.mcp_server else "built-in"
+            desc = tool_def.description[:60] + "..." if len(tool_def.description) > 60 else tool_def.description
+            table.add_row(tool_def.name, tool_def.category, desc, source)
+
+        console.print("\n")
+        console.print(table)
+        console.print(f"\n[bold]Total tools:[/bold] {len(tool_defs)}")
+        console.print("[dim]Use --schema <tool_name> to see detailed schema[/dim]\n")
+
+    except Exception as e:
+        output.print_error(e)
+        raise typer.Exit(1)
+
+
+@app.command()
+def mcp(
+    list_servers: bool = typer.Option(False, "--list", "-l", help="List configured MCP servers"),
+    add: Optional[str] = typer.Option(None, "--add", help="Add a new MCP server (name)"),
+    command: Optional[str] = typer.Option(None, "--command", help="Command to start server (used with --add)"),
+    remove: Optional[str] = typer.Option(None, "--remove", help="Remove an MCP server"),
+    init: bool = typer.Option(False, "--init", help="Create example MCP configuration"),
+    server_tools: Optional[str] = typer.Option(None, "--server-tools", help="List tools from specific server"),
+) -> None:
+    """
+    Manage MCP (Model Context Protocol) servers.
+
+    Configure and manage external tool providers via MCP.
+    """
+    try:
+        from ..tools.mcp_client import MCPClient, MCPServer
+        from rich.table import Table
+
+        client = MCPClient()
+
+        # Initialize example config
+        if init:
+            client.create_example_config()
+            console.print(f"\n✨ [bold green]Created MCP configuration[/bold green]\n")
+            console.print(f"Location: {client.config_path}")
+            console.print("\nExample servers configured:")
+            console.print("  • filesystem - File operations")
+            console.print("  • web - Web fetching")
+            console.print("  • github - GitHub API (disabled by default)\n")
+            console.print("[dim]Edit the configuration file to customize servers.[/dim]\n")
+            return
+
+        # Add new server
+        if add:
+            if not command:
+                console.print("[red]Error: --command is required when adding a server[/red]")
+                raise typer.Exit(1)
+
+            server = MCPServer(
+                name=add,
+                command=command.split()[0],
+                args=command.split()[1:] if len(command.split()) > 1 else [],
+                description="Custom MCP server",
+                enabled=True,
+            )
+            client.add_server(server)
+            console.print(f"\n✨ [bold green]Added MCP server:[/bold green] {add}\n")
+            return
+
+        # Remove server
+        if remove:
+            if remove not in client.servers:
+                console.print(f"[red]Server not found: {remove}[/red]")
+                raise typer.Exit(1)
+
+            client.remove_server(remove)
+            console.print(f"\n✨ [bold green]Removed MCP server:[/bold green] {remove}\n")
+            return
+
+        # Show tools from specific server
+        if server_tools:
+            if server_tools not in client.servers:
+                console.print(f"[red]Server not found: {server_tools}[/red]")
+                raise typer.Exit(1)
+
+            tools = client.get_server_tools(server_tools)
+
+            if not tools:
+                console.print(f"[yellow]No tools available from server: {server_tools}[/yellow]")
+                return
+
+            table = Table(title=f"Tools from '{server_tools}'", show_header=True, header_style="bold magenta")
+            table.add_column("Name", style="cyan")
+            table.add_column("Category", style="green")
+            table.add_column("Description", style="white")
+
+            for tool_def in tools:
+                desc = tool_def.description[:60] + "..." if len(tool_def.description) > 60 else tool_def.description
+                table.add_row(tool_def.name, tool_def.category, desc)
+
+            console.print("\n")
+            console.print(table)
+            console.print(f"\n[bold]Total tools:[/bold] {len(tools)}\n")
+            return
+
+        # List servers (default)
+        servers = client.list_servers()
+
+        if not servers:
+            console.print("[yellow]No MCP servers configured.[/yellow]")
+            console.print("[dim]Use --init to create example configuration[/dim]\n")
+            return
+
+        table = Table(title="MCP Servers", show_header=True, header_style="bold magenta")
+        table.add_column("Name", style="cyan")
+        table.add_column("Command", style="green")
+        table.add_column("Status", style="yellow")
+        table.add_column("Description", style="white")
+
+        for server in servers:
+            status = "✓ enabled" if server.enabled else "✗ disabled"
+            cmd = f"{server.command} {' '.join(server.args)}"[:40]
+            desc = server.description[:40] + "..." if len(server.description) > 40 else server.description
+            table.add_row(server.name, cmd, status, desc)
+
+        console.print("\n")
+        console.print(table)
+        console.print(f"\n[bold]Total servers:[/bold] {len(servers)}")
+        console.print(f"[dim]Config: {client.config_path}[/dim]")
+        console.print("[dim]Use --server-tools <name> to see available tools[/dim]\n")
 
     except Exception as e:
         output.print_error(e)

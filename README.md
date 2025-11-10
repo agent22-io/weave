@@ -16,6 +16,10 @@ Weave allows you to define and compose AI agents using YAML configuration files 
 - 🎨 **Visualization** - ASCII and Mermaid graph generation
 - 🪝 **Extensible** - Hook system for custom execution (v2: real LLM calls)
 - 🧪 **Mock Execution** - Test workflows without API calls (v1)
+- 🔧 **Tool Calling** - Built-in and custom tools with JSON schema validation
+- 🌐 **MCP Integration** - Connect to Model Context Protocol servers for external tools
+- 🔌 **Plugin System** - Built-in and custom plugins for extending agent capabilities
+- 📁 **Resource Management** - Organize prompts, skills, and knowledge bases in files
 
 ## 📦 Installation
 
@@ -235,6 +239,118 @@ weave graph --format mermaid
 weave graph --format mermaid --output pipeline.mmd
 ```
 
+#### `weave tools`
+
+List and inspect available tools for agents.
+
+**Options:**
+- `--category, -c` - Filter by category (math, text, data, web, etc.)
+- `--tags, -t` - Filter by tags (comma-separated)
+- `--schema, -s` - Show JSON schema for a specific tool
+
+```bash
+# List all tools
+weave tools
+
+# Filter by category
+weave tools --category math
+
+# View tool schema
+weave tools --schema calculator
+```
+
+Built-in tools include:
+- **calculator** - Evaluate mathematical expressions
+- **text_length** - Count characters, words, and lines
+- **json_validator** - Validate and parse JSON
+- **string_formatter** - Format strings with templates
+- **list_operations** - Perform list operations
+
+See [Tool Calling Guide](docs/guides/tool-calling.md) for details.
+
+#### `weave mcp`
+
+Manage MCP (Model Context Protocol) servers.
+
+**Options:**
+- `--list, -l` - List configured MCP servers
+- `--init` - Create example MCP configuration
+- `--add <name>` - Add a new MCP server
+- `--command <cmd>` - Command to start server (used with --add)
+- `--remove <name>` - Remove an MCP server
+- `--server-tools <name>` - List tools from specific server
+
+```bash
+# Initialize MCP configuration
+weave mcp --init
+
+# List servers
+weave mcp
+
+# View tools from server
+weave mcp --server-tools filesystem
+
+# Add custom server
+weave mcp --add myserver --command "python server.py"
+```
+
+See [MCP Integration Guide](docs/guides/mcp.md) for details.
+
+#### `weave plugins`
+
+List and manage plugins for extending agent capabilities.
+
+**Options:**
+- `--category, -c` - Filter by category (data_collection, web, nlp, etc.)
+
+```bash
+weave plugins
+weave plugins --category web
+```
+
+Built-in plugins include:
+- **web_search** - Search the web for information
+- **summarizer** - Summarize text content
+- **data_cleaner** - Clean and normalize data
+- **json_parser** - Parse and validate JSON
+- **markdown_formatter** - Format content as Markdown
+
+See [Plugins Guide](docs/guides/plugins.md) for creating custom plugins.
+
+#### `weave resources`
+
+List and manage agent resources (prompts, skills, knowledge bases).
+
+**Options:**
+- `--type, -t` - Filter by type (prompt, skill, recipe, knowledge, rule, behavior, sub_agent)
+- `--path, -p` - Resource directory path (default: .weave)
+- `--create` - Create example resource structure
+
+```bash
+# List all resources
+weave resources
+
+# Filter by type
+weave resources --type skill
+
+# Create example structure
+weave resources --create
+```
+
+Resources are organized in `.weave/` directory:
+```
+.weave/
+├── prompts/         # System prompts with YAML frontmatter
+├── skills/          # Agent skills (YAML)
+├── recipes/         # Workflow templates
+├── knowledge/       # Knowledge bases (Markdown, text)
+├── rules/           # Agent constraints
+├── behaviors/       # Behavioral guidelines
+└── sub_agents/      # Nested agent configurations
+```
+
+See [Resources Guide](docs/guides/resources.md) for details.
+
 ### Configuration
 
 #### Agent Definition
@@ -316,6 +432,11 @@ See the `examples/` directory for complete examples:
 - **[basic.weave.yaml](examples/basic.weave.yaml)** - Simple two-agent pipeline
 - **[research-pipeline.weave.yaml](examples/research-pipeline.weave.yaml)** - Multi-stage research workflow
 - **[data-processing.weave.yaml](examples/data-processing.weave.yaml)** - ETL-style data pipeline
+- **[tool-calling.weave.yaml](examples/tool-calling.weave.yaml)** - Using built-in and custom tools
+- **[mcp-integration.weave.yaml](examples/mcp-integration.weave.yaml)** - MCP server integration
+- **[custom_plugin_example.py](examples/custom_plugin_example.py)** - Creating custom plugins
+- **[resources_example/](examples/resources_example/)** - Complete resources system demo
+- **[TOOLS_AND_MCP.md](examples/TOOLS_AND_MCP.md)** - Tool calling and MCP guide
 
 ## 🏗️ Architecture
 
@@ -347,6 +468,9 @@ See the `examples/` directory for complete examples:
 - **Parser** (`src/weave/parser/`) - YAML parsing and env substitution
 - **Core** (`src/weave/core/`) - Pydantic models and dependency graph
 - **Runtime** (`src/weave/runtime/`) - Execution engine with hooks
+- **Tools** (`src/weave/tools/`) - Tool calling system with MCP integration
+- **Plugins** (`src/weave/plugins/`) - Plugin system with built-in and custom plugins
+- **Resources** (`src/weave/resources/`) - File-based resource loading for prompts, skills, etc.
 
 ## 🔮 Roadmap
 
@@ -354,22 +478,32 @@ See the `examples/` directory for complete examples:
 - ✅ Declarative YAML configuration
 - ✅ Dependency graph resolution
 - ✅ Mock execution engine
-- ✅ CLI with plan/apply/graph commands
+- ✅ CLI with plan/apply/graph/tools/mcp commands
 - ✅ ASCII and Mermaid visualization
+- ✅ Tool calling with JSON schema validation
+- ✅ Built-in tools (calculator, text processing, data validation)
+- ✅ Custom tool definitions in YAML
+- ✅ MCP (Model Context Protocol) server integration
+- ✅ Plugin system with built-in and custom plugins
+- ✅ Resource management for prompts, skills, and knowledge bases
 
 ### v2.0 (Planned)
 - 🔄 Real LLM execution via APIs
 - 🔄 Multiple provider support (OpenAI, Anthropic, etc.)
+- 🔄 Real tool calling during LLM execution
+- 🔄 MCP protocol implementation (full spec)
 - 🔄 State management and drift detection
 - 🔄 Parallel execution support
+- 🔄 Resource loading integration (@prompts/, @skills/ syntax)
 - 🔄 Agent module registry
+- 🔄 Tool result caching
 
 ### v3.0 (Future)
 - 📦 Remote module system
-- 🔌 Plugin architecture
 - 🌐 Web UI dashboard
 - 📊 Execution analytics
 - 🔐 Secret management
+- 🔄 Advanced plugin marketplace
 
 ## 🤝 Contributing
 

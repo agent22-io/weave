@@ -58,9 +58,10 @@ def init(
     """
     Initialize a new Weave project with example configuration.
 
-    Creates a .weave.yaml file with sample agents and weaves.
+    Creates a .agent.yaml file and .agent/ directory with resource subdirectories.
     """
-    config_path = Path(".weave.yaml")
+    config_path = Path(".agent.yaml")
+    agent_dir = Path(".agent")
 
     if config_path.exists() and not force:
         output.print_error(
@@ -71,7 +72,7 @@ def init(
         raise typer.Exit(1)
 
     # Example configuration
-    example_config = """# Weave Configuration
+    example_config = """# Agent Configuration
 # https://docs.weave.dev
 
 version: "1.0"
@@ -122,16 +123,39 @@ weaves:
       - editor
 """
 
+    # Resource subdirectories to create
+    resource_dirs = [
+        "prompts",
+        "skills",
+        "recipes",
+        "knowledge",
+        "rules",
+        "behaviors",
+        "sub_agents"
+    ]
+
     try:
+        # Create config file
         with open(config_path, "w") as f:
             f.write(example_config)
 
+        # Create .agent directory with resource subdirectories
+        agent_dir.mkdir(exist_ok=True)
+        for subdir in resource_dirs:
+            (agent_dir / subdir).mkdir(exist_ok=True)
+            # Create .gitkeep to preserve empty directories in git
+            (agent_dir / subdir / ".gitkeep").touch()
+
         console.print("\n✨ [bold green]Initialized Weave project![/bold green]\n")
-        console.print(f"Created [cyan]{config_path}[/cyan] with example configuration\n")
-        console.print("[bold]Next steps:[/bold]")
-        console.print("  1. Edit .weave.yaml to define your agents")
-        console.print("  2. Run [cyan]weave plan[/cyan] to preview execution")
-        console.print("  3. Run [cyan]weave apply[/cyan] to execute the flow\n")
+        console.print(f"Created [cyan]{config_path}[/cyan] with example configuration")
+        console.print(f"Created [cyan]{agent_dir}/[/cyan] directory with resource folders:\n")
+        for subdir in resource_dirs:
+            console.print(f"  • {agent_dir}/{subdir}/")
+        console.print("\n[bold]Next steps:[/bold]")
+        console.print("  1. Edit .agent.yaml to define your agents")
+        console.print("  2. Add resources to .agent/ subdirectories")
+        console.print("  3. Run [cyan]weave plan[/cyan] to preview execution")
+        console.print("  4. Run [cyan]weave apply[/cyan] to execute the flow\n")
 
     except Exception as e:
         output.print_error(e)
@@ -141,7 +165,7 @@ weaves:
 @app.command()
 def plan(
     config: Path = typer.Option(
-        ".weave.yaml", "--config", "-c", help="Path to config file"
+        ".agent.yaml", "--config", "-c", help="Path to config file"
     ),
     weave: Optional[str] = typer.Option(
         None, "--weave", "-w", help="Specific weave to plan"
@@ -196,7 +220,7 @@ def plan(
 @app.command()
 def apply(
     config: Path = typer.Option(
-        ".weave.yaml", "--config", "-c", help="Path to config file"
+        ".agent.yaml", "--config", "-c", help="Path to config file"
     ),
     weave: Optional[str] = typer.Option(
         None, "--weave", "-w", help="Specific weave to apply"
@@ -309,7 +333,7 @@ def resources(
         None, "--type", "-t", help="Filter by resource type"
     ),
     path: Path = typer.Option(
-        ".weave", "--path", "-p", help="Resources directory path"
+        ".agent", "--path", "-p", help="Resources directory path"
     ),
     create: bool = typer.Option(
         False, "--create", help="Create default resource structure"
@@ -318,7 +342,7 @@ def resources(
     """
     List and manage resources (prompts, skills, recipes, etc.).
 
-    Resources are loaded from the .weave/ directory by default.
+    Resources are loaded from the .agent/ directory by default.
     """
     try:
         loader = ResourceLoader(base_path=path)
@@ -596,11 +620,11 @@ def state(
                 state_file = weave_config.storage.state_file
                 lock_file = weave_config.storage.lock_file
             else:
-                state_file = ".weave/state.yaml"
-                lock_file = ".weave/weave.lock"
+                state_file = ".agent/state.yaml"
+                lock_file = ".agent/weave.lock"
         except Exception:
-            state_file = ".weave/state.yaml"
-            lock_file = ".weave/weave.lock"
+            state_file = ".agent/state.yaml"
+            lock_file = ".agent/weave.lock"
 
         manager = StateManager(state_file=state_file, lock_file=lock_file)
 
@@ -722,7 +746,7 @@ def state(
 @app.command()
 def dev(
     config: Path = typer.Option(
-        ".weave.yaml", "--config", "-c", help="Path to config file"
+        ".agent.yaml", "--config", "-c", help="Path to config file"
     ),
     weave: Optional[str] = typer.Option(
         None, "--weave", "-w", help="Specific weave to run"
@@ -821,7 +845,7 @@ def dev(
 def inspect(
     run_id: str = typer.Argument(..., help="Run ID to inspect"),
     config: Path = typer.Option(
-        ".weave.yaml", "--config", "-c", help="Path to config file"
+        ".agent.yaml", "--config", "-c", help="Path to config file"
     ),
     show_prompts: bool = typer.Option(
         False, "--prompts", help="Show LLM prompts sent"
@@ -852,9 +876,9 @@ def inspect(
             if weave_config.storage:
                 state_file = weave_config.storage.state_file
             else:
-                state_file = ".weave/state.yaml"
+                state_file = ".agent/state.yaml"
         except Exception:
-            state_file = ".weave/state.yaml"
+            state_file = ".agent/state.yaml"
 
         manager = StateManager(state_file=state_file)
 
@@ -920,7 +944,7 @@ def inspect(
 def run(
     agent: str = typer.Argument(..., help="Agent name from config"),
     config: Path = typer.Option(
-        ".weave.yaml", "--config", "-c", help="Path to config file"
+        ".agent.yaml", "--config", "-c", help="Path to config file"
     ),
 ) -> None:
     """

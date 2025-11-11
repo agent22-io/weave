@@ -51,7 +51,7 @@ export ANTHROPIC_API_KEY="your-key-here"
 export OPENROUTER_API_KEY="your-key-here"
 ```
 
-Alternatively, API keys can be stored encrypted in `~/.weave/api_keys.yaml` using the APIKeyManager.
+Alternatively, API keys can be stored encrypted in `~/.agent/api_keys.yaml` using the APIKeyManager.
 
 ## 🚀 Quick Start
 
@@ -61,7 +61,7 @@ Alternatively, API keys can be stored encrypted in `~/.weave/api_keys.yaml` usin
 weave init
 ```
 
-This creates a `.weave.yaml` file:
+This creates a `.agent.yaml` file:
 
 ```yaml
 version: "1.0"
@@ -262,10 +262,10 @@ tools:
 
 ## 📊 Resource Management
 
-Organize agent resources in `.weave/` directory:
+Organize agent resources in `.agent/` directory:
 
 ```
-.weave/
+.agent/
 ├── prompts/         # System prompts (YAML + markdown)
 ├── skills/          # Agent skills (YAML)
 ├── recipes/         # Workflow templates
@@ -285,7 +285,7 @@ weave resources --create
 
 Complete examples with resources:
 
-- **[basic.weave.yaml](examples/basic.weave.yaml)** - Simple pipeline
+- **[basic.agent.yaml](examples/basic.agent.yaml)** - Simple pipeline
 - **[coding-agent-example/](examples/coding-agent-example/)** - Software development
 - **[content-creation-example/](examples/content-creation-example/)** - Blog posts
 - **[research-assistant-example/](examples/research-assistant-example/)** - Research & analysis

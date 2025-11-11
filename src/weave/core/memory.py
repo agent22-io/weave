@@ -241,7 +241,7 @@ class LongTermMemory:
         """Initialize long-term memory.
 
         Args:
-            memory_dir: Directory to store memory files (default: .weave/memory)
+            memory_dir: Directory to store memory files (default: .agent/memory)
         """
         self.memory_dir = memory_dir or Path(".weave") / "memory"
         self.memory_dir.mkdir(parents=True, exist_ok=True)

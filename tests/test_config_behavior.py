@@ -68,8 +68,8 @@ version: "1.0"
 
 storage:
   enabled: true
-  base_path: ".weave/storage"
-  state_file: ".weave/state.yaml"
+  base_path: ".agent/storage"
+  state_file: ".agent/state.yaml"
 
 agents:
   agent1:

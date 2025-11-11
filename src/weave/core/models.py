@@ -80,7 +80,7 @@ class StorageConfig(BaseModel):
     """Storage configuration for agent state and outputs."""
 
     enabled: bool = True
-    base_path: str = ".weave/storage"  # Base storage directory
+    base_path: str = ".agent/storage"  # Base storage directory
     save_outputs: bool = True  # Save agent outputs
     save_memory: bool = False  # Save memory state
     save_logs: bool = True  # Save execution logs
@@ -113,7 +113,7 @@ class Agent(BaseModel):
     outputs: Optional[str] = None  # Output key name
     prompt: Optional[str] = None  # Agent-specific prompt/instructions
 
-    # Resource references (loaded from .weave/ directory)
+    # Resource references (loaded from .agent/ directory)
     skills: List[str] = Field(default_factory=list)  # References to skill resources
     knowledge: List[str] = Field(default_factory=list)  # References to knowledge base resources
     rules: List[str] = Field(default_factory=list)  # References to rule resources
@@ -203,9 +203,9 @@ class GlobalStorageConfig(BaseModel):
     """Global storage configuration for the entire weave."""
 
     enabled: bool = True
-    base_path: str = ".weave/storage"
-    state_file: str = ".weave/state.yaml"  # Weave execution state
-    lock_file: str = ".weave/weave.lock"  # Execution lock file
+    base_path: str = ".agent/storage"
+    state_file: str = ".agent/state.yaml"  # Weave execution state
+    lock_file: str = ".agent/weave.lock"  # Execution lock file
     format: str = "json"  # Storage format (json, yaml)
     auto_cleanup: bool = False  # Auto-cleanup old state
     retention_days: int = 30  # Days to retain old state

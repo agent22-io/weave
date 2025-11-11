@@ -57,8 +57,8 @@ class StateManager:
 
     def __init__(
         self,
-        state_file: str = ".weave/state.yaml",
-        lock_file: str = ".weave/weave.lock",
+        state_file: str = ".agent/state.yaml",
+        lock_file: str = ".agent/weave.lock",
     ):
         """Initialize state manager.
 

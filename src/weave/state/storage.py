@@ -20,7 +20,7 @@ class StorageFormat(str, Enum):
 class StorageBackend:
     """Backend for storing and retrieving data."""
 
-    def __init__(self, base_path: str = ".weave/storage", format: str = "json"):
+    def __init__(self, base_path: str = ".agent/storage", format: str = "json"):
         """Initialize storage backend.
 
         Args:
@@ -188,7 +188,7 @@ class StorageBackend:
 class Storage:
     """High-level storage interface."""
 
-    def __init__(self, base_path: str = ".weave/storage", format: str = "json"):
+    def __init__(self, base_path: str = ".agent/storage", format: str = "json"):
         """Initialize storage.
 
         Args:

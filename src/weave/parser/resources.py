@@ -126,7 +126,7 @@ class ResourceProcessor:
                         else:
                             print(
                                 f"Warning: Resource not found: {ref} "
-                                f"(looked in .weave/{resource_type_name}/)"
+                                f"(looked in .agent/{resource_type_name}/)"
                             )
                             processed.append(ref)  # Keep original reference
                     else:
@@ -165,7 +165,7 @@ class ResourceProcessor:
         if not resource:
             print(
                 f"Warning: Resource not found: {reference} "
-                f"(looked in .weave/{resource_type_name}/)"
+                f"(looked in .agent/{resource_type_name}/)"
             )
 
         return resource

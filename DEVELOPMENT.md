@@ -187,7 +187,7 @@ Runs on pushes and PRs to `main`, `develop`, and `claude/**` branches:
   - Test CLI installation
 
 - **Examples Job**: Validates example configs
-  - Validate all `.weave.yaml` files
+  - Validate all `.agent.yaml` files
   - Test configs in dry-run mode
 
 #### Release Workflow (`.github/workflows/release.yml`)
@@ -205,12 +205,12 @@ The CI validates all example configurations:
 
 ```bash
 # Validate all examples
-for config in examples/*.weave.yaml; do
+for config in examples/*.agent.yaml; do
   weave validate "$config"
 done
 
 # Test in dry-run mode
-for config in examples/*.weave.yaml; do
+for config in examples/*.agent.yaml; do
   weave run "$config" --dry-run
 done
 ```

@@ -56,12 +56,12 @@ run_check "Tests (pytest)" pytest tests/ -v --tb=short --color=yes
 run_check "CLI verification" bash -c "weave --version && weave --help > /dev/null"
 
 # Validate example configs if they exist
-if ls examples/*.weave.yaml 1> /dev/null 2>&1; then
+if ls examples/*.agent.yaml 1> /dev/null 2>&1; then
     echo "========================================"
     echo "🔍 Validating example configs"
     echo "========================================"
     EXAMPLE_FAILED=0
-    for config in examples/*.weave.yaml; do
+    for config in examples/*.agent.yaml; do
         echo "Validating $config..."
         if weave validate "$config" 2>/dev/null || true; then
             echo "✅ $config is valid"

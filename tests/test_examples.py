@@ -10,7 +10,7 @@ from rich.console import Console
 
 # Find all example YAML files
 EXAMPLES_DIR = Path(__file__).parent.parent / "examples"
-EXAMPLE_CONFIGS = list(EXAMPLES_DIR.glob("*.weave.yaml"))
+EXAMPLE_CONFIGS = list(EXAMPLES_DIR.glob("*.agent.yaml"))
 
 
 class TestExampleConfigs:
@@ -73,7 +73,7 @@ class TestExampleFeatureCoverage:
 
     def test_basic_pipeline_example_exists(self):
         """Should have a basic pipeline example."""
-        basic_example = EXAMPLES_DIR / "basic.weave.yaml"
+        basic_example = EXAMPLES_DIR / "basic.agent.yaml"
         assert basic_example.exists()
 
         config = load_config_from_path(basic_example)
@@ -82,12 +82,12 @@ class TestExampleFeatureCoverage:
     # NOTE: Tool calling and MCP examples deferred to v2
     # def test_tool_calling_example_exists(self):
     #     """Should have a tool calling example."""
-    #     tool_example = EXAMPLES_DIR / "tool-calling.weave.yaml"
+    #     tool_example = EXAMPLES_DIR / "tool-calling.agent.yaml"
     #     assert tool_example.exists()
 
     # def test_mcp_integration_example_exists(self):
     #     """Should have an MCP integration example."""
-    #     mcp_example = EXAMPLES_DIR / "mcp-integration.weave.yaml"
+    #     mcp_example = EXAMPLES_DIR / "mcp-integration.agent.yaml"
     #     assert mcp_example.exists()
 
     def test_resources_example_exists(self):
@@ -96,19 +96,19 @@ class TestExampleFeatureCoverage:
         assert resources_example.exists()
         assert resources_example.is_dir()
 
-        config_file = resources_example / ".weave.yaml"
+        config_file = resources_example / ".agent.yaml"
         assert config_file.exists()
 
-    # NOTE: These examples exist as directories with .weave.yaml files inside
+    # NOTE: These examples exist as directories with .agent.yaml files inside
     # The standalone .yaml files at root level don't exist
     # def test_data_processing_example_exists(self):
     #     """Should have a data processing example."""
-    #     data_example = EXAMPLES_DIR / "data-processing.weave.yaml"
+    #     data_example = EXAMPLES_DIR / "data-processing.agent.yaml"
     #     assert data_example.exists()
 
     # def test_research_pipeline_example_exists(self):
     #     """Should have a research pipeline example."""
-    #     research_example = EXAMPLES_DIR / "research-pipeline.weave.yaml"
+    #     research_example = EXAMPLES_DIR / "research-pipeline.agent.yaml"
     #     assert research_example.exists()
 
 

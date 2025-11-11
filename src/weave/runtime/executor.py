@@ -150,7 +150,7 @@ class Executor:
             from ..resources.loader import ResourceLoader
             from pathlib import Path
 
-            # Use .weave/ directory in current working directory
+            # Use .agent/ directory in current working directory
             base_path = Path(".weave")
             self.resource_loader = ResourceLoader(base_path)
 
@@ -163,7 +163,7 @@ class Executor:
                     self.console.print(f"[dim]Loaded {total} resources[/dim]")
             else:
                 if self.verbose:
-                    self.console.print("[dim]No .weave/ directory found, resources disabled[/dim]")
+                    self.console.print("[dim]No .agent/ directory found, resources disabled[/dim]")
 
         except ImportError as e:
             if self.verbose:
@@ -225,8 +225,8 @@ class Executor:
                 state_file = self.config.storage.state_file
                 lock_file = self.config.storage.lock_file
             else:
-                state_file = ".weave/state.yaml"
-                lock_file = ".weave/weave.lock"
+                state_file = ".agent/state.yaml"
+                lock_file = ".agent/weave.lock"
 
             self.state_manager = StateManager(
                 state_file=state_file, lock_file=lock_file
@@ -248,7 +248,7 @@ class Executor:
                 base_path = self.config.storage.base_path
                 format = self.config.storage.format
             else:
-                base_path = ".weave/storage"
+                base_path = ".agent/storage"
                 format = "json"
 
             self.storage = Storage(base_path=base_path, format=format)

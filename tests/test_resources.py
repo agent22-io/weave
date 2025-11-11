@@ -16,12 +16,12 @@ class TestResourceExamples:
         assert resources_example.exists()
         assert resources_example.is_dir()
 
-        config_file = resources_example / ".weave.yaml"
+        config_file = resources_example / ".agent.yaml"
         assert config_file.exists()
 
     def test_resources_example_loads(self):
         """Resources example configuration should load successfully."""
-        config_file = Path(__file__).parent.parent / "examples" / "resources_example" / ".weave.yaml"
+        config_file = Path(__file__).parent.parent / "examples" / "resources_example" / ".agent.yaml"
         config = load_config_from_path(config_file)
 
         assert config is not None
@@ -30,7 +30,7 @@ class TestResourceExamples:
 
     def test_resources_example_agents(self):
         """Resources example agents should have proper resource references."""
-        config_file = Path(__file__).parent.parent / "examples" / "resources_example" / ".weave.yaml"
+        config_file = Path(__file__).parent.parent / "examples" / "resources_example" / ".agent.yaml"
         config = load_config_from_path(config_file)
 
         # Check writer agent
@@ -114,7 +114,7 @@ class TestResourceProcessor:
         """ResourceProcessor should process @prompts/ references."""
         from weave.parser.resources import ResourceProcessor
 
-        config_file = Path(__file__).parent.parent / "examples" / "resources_example" / ".weave.yaml"
+        config_file = Path(__file__).parent.parent / "examples" / "resources_example" / ".agent.yaml"
         processor = ResourceProcessor(config_file)
 
         agent_config = {
@@ -132,7 +132,7 @@ class TestResourceProcessor:
         """ResourceProcessor should process @skills/ references."""
         from weave.parser.resources import ResourceProcessor
 
-        config_file = Path(__file__).parent.parent / "examples" / "resources_example" / ".weave.yaml"
+        config_file = Path(__file__).parent.parent / "examples" / "resources_example" / ".agent.yaml"
         processor = ResourceProcessor(config_file)
 
         agent_config = {
@@ -150,7 +150,7 @@ class TestResourceProcessor:
         """ResourceProcessor should process @knowledge/ references."""
         from weave.parser.resources import ResourceProcessor
 
-        config_file = Path(__file__).parent.parent / "examples" / "resources_example" / ".weave.yaml"
+        config_file = Path(__file__).parent.parent / "examples" / "resources_example" / ".agent.yaml"
         processor = ResourceProcessor(config_file)
 
         agent_config = {
@@ -168,7 +168,7 @@ class TestResourceProcessor:
         """ResourceProcessor should handle missing resources gracefully."""
         from weave.parser.resources import ResourceProcessor
 
-        config_file = Path(__file__).parent.parent / "examples" / "resources_example" / ".weave.yaml"
+        config_file = Path(__file__).parent.parent / "examples" / "resources_example" / ".agent.yaml"
         processor = ResourceProcessor(config_file)
 
         agent_config = {
@@ -186,7 +186,7 @@ class TestResourceIntegration:
 
     def test_config_with_resources_validates(self):
         """Configuration with resources should validate successfully."""
-        config_file = Path(__file__).parent.parent / "examples" / "resources_example" / ".weave.yaml"
+        config_file = Path(__file__).parent.parent / "examples" / "resources_example" / ".agent.yaml"
         config = load_config_from_path(config_file)
 
         # Validate all weaves
@@ -203,7 +203,7 @@ class TestResourceIntegration:
 
     def test_agent_with_resources_has_correct_fields(self):
         """Agent loaded with resources should have correct field values."""
-        config_file = Path(__file__).parent.parent / "examples" / "resources_example" / ".weave.yaml"
+        config_file = Path(__file__).parent.parent / "examples" / "resources_example" / ".agent.yaml"
         config = load_config_from_path(config_file)
 
         writer = config.agents["writer"]

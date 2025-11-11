@@ -58,7 +58,7 @@ class ResourceLoader:
         Load system prompts from files.
 
         Args:
-            path: Directory containing prompt files (default: .weave/prompts/)
+            path: Directory containing prompt files (default: .agent/prompts/)
 
         Returns:
             Dictionary of prompt name to SystemPrompt
@@ -88,7 +88,7 @@ class ResourceLoader:
         Load skills from files.
 
         Args:
-            path: Directory containing skill files (default: .weave/skills/)
+            path: Directory containing skill files (default: .agent/skills/)
 
         Returns:
             Dictionary of skill name to Skill
@@ -111,7 +111,7 @@ class ResourceLoader:
         Load workflow recipes from files.
 
         Args:
-            path: Directory containing recipe files (default: .weave/recipes/)
+            path: Directory containing recipe files (default: .agent/recipes/)
 
         Returns:
             Dictionary of recipe name to Recipe
@@ -134,7 +134,7 @@ class ResourceLoader:
         Load knowledge base files.
 
         Args:
-            path: Directory containing knowledge files (default: .weave/knowledge/)
+            path: Directory containing knowledge files (default: .agent/knowledge/)
 
         Returns:
             Dictionary of KB name to KnowledgeBase
@@ -173,7 +173,7 @@ class ResourceLoader:
         Load rules from files.
 
         Args:
-            path: Directory containing rule files (default: .weave/rules/)
+            path: Directory containing rule files (default: .agent/rules/)
 
         Returns:
             Dictionary of rule name to Rule
@@ -196,7 +196,7 @@ class ResourceLoader:
         Load agent behaviors from files.
 
         Args:
-            path: Directory containing behavior files (default: .weave/behaviors/)
+            path: Directory containing behavior files (default: .agent/behaviors/)
 
         Returns:
             Dictionary of behavior name to AgentBehavior
@@ -219,7 +219,7 @@ class ResourceLoader:
         Load sub-agent prompts from files.
 
         Args:
-            path: Directory containing sub-agent files (default: .weave/sub_agents/)
+            path: Directory containing sub-agent files (default: .agent/sub_agents/)
 
         Returns:
             Dictionary of sub-agent name to SubAgentPrompt
@@ -242,7 +242,7 @@ class ResourceLoader:
         Load agent memories from markdown files.
 
         Args:
-            path: Directory containing memory files (default: .weave/memory/)
+            path: Directory containing memory files (default: .agent/memory/)
 
         Returns:
             Dictionary of agent name to MemoryResource

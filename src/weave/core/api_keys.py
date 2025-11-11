@@ -6,6 +6,8 @@ from pathlib import Path
 from typing import Dict, Optional
 from cryptography.fernet import Fernet
 
+from .env_loader import load_env_file
+
 
 class APIKeyManager:
     """Manage API keys for LLM providers.
@@ -20,6 +22,9 @@ class APIKeyManager:
         Args:
             config_dir: Config directory (default: ~/.weave)
         """
+        # Load .env file from project directory first
+        load_env_file()
+
         self.config_dir = config_dir or Path.home() / ".weave"
         self.config_dir.mkdir(parents=True, exist_ok=True)
 

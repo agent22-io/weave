@@ -2,7 +2,7 @@
 
 **Declarative AI agent orchestration framework**
 
-Weave is a framework for building and composing interopable AI agents. Define what you want your agent to do in plain yaml and let weave worry about how to build the agent.
+Weave is a framework for building and composing interopable AI agents. Define what you want your agent to be in plain yaml and let weave worry about how to build and run the agent.
 
 ## ✨ Why Weave?
 

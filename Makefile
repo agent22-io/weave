@@ -1,14 +1,16 @@
-.PHONY: help clean clean-build clean-pyc install install-dev test lint format build dist release check-version
+.PHONY: help clean clean-build clean-pyc install install-dev install-uv test lint format build dist release check-version ci
 
 help:
 	@echo "Weave CLI - Makefile Commands"
 	@echo ""
 	@echo "Development:"
-	@echo "  make install        - Install package in development mode"
-	@echo "  make install-dev    - Install package with dev dependencies"
+	@echo "  make install        - Install package in development mode (pip)"
+	@echo "  make install-dev    - Install package with dev dependencies (pip)"
+	@echo "  make install-uv     - Install with uv (recommended, faster)"
 	@echo "  make test           - Run tests with pytest"
 	@echo "  make lint           - Run linting with ruff"
 	@echo "  make format         - Format code with black"
+	@echo "  make ci             - Run all CI checks locally"
 	@echo ""
 	@echo "Building:"
 	@echo "  make clean          - Remove all build, test, and Python artifacts"
@@ -44,6 +46,36 @@ install:
 install-dev:
 	@echo "Installing package with dev dependencies..."
 	pip install -e ".[dev,all]"
+
+install-uv:
+	@echo "Setting up development environment with uv (faster)..."
+	@if command -v uv >/dev/null 2>&1; then \
+		echo "✅ Found uv"; \
+		if [ ! -d ".venv" ]; then \
+			echo "Creating virtual environment..."; \
+			uv venv; \
+		fi; \
+		echo "Installing dependencies..."; \
+		uv pip install -e ".[dev,all]"; \
+		echo "✅ Setup complete! Activate with: source .venv/bin/activate"; \
+	else \
+		echo "❌ uv not found. Install it with:"; \
+		echo "   curl -LsSf https://astral.sh/uv/install.sh | sh"; \
+		exit 1; \
+	fi
+
+ci:
+	@echo "Running CI checks locally..."
+	@if [ -f "scripts/run-ci.sh" ]; then \
+		./scripts/run-ci.sh; \
+	else \
+		echo "Running CI checks inline..."; \
+		ruff check src/ tests/ && \
+		pytest tests/ -v --tb=short --color=yes && \
+		weave --version && \
+		weave --help >/dev/null && \
+		echo "✅ All CI checks passed!"; \
+	fi
 
 test:
 	@echo "Running tests..."

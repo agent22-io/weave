@@ -52,3 +52,12 @@ Thumbs.db
 .weave/
 !examples/**/.weave/
 *.weave.state
+
+# Environment files - Keep API keys private!
+.env
+*.env
+!.env.example
+.agent/.env
+.agent/state.yaml
+.agent/storage/
+.agent/*.lock

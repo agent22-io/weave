@@ -100,7 +100,18 @@ class LLMExecutor:
             self.openai_client = None
             return
 
-        self.openai_client = openai.OpenAI(api_key=api_key)
+        # Check for custom base URL (for OpenAI-compatible APIs)
+        base_url = os.getenv("OPENAI_BASE_URL")
+
+        if base_url:
+            self.openai_client = openai.OpenAI(api_key=api_key, base_url=base_url)
+            if self.verbose:
+                self.console.print(f"[dim]Using custom OpenAI endpoint: {base_url}[/dim]")
+        else:
+            self.openai_client = openai.OpenAI(api_key=api_key)
+
+        # Store default model if specified
+        self.openai_default_model = os.getenv("OPENAI_MODEL")
 
     def _init_anthropic(self) -> None:
         """Initialize Anthropic client."""
@@ -123,6 +134,9 @@ class LLMExecutor:
             return
 
         self.anthropic_client = anthropic.Anthropic(api_key=api_key)
+
+        # Store default model if specified
+        self.anthropic_default_model = os.getenv("ANTHROPIC_MODEL")
 
     async def execute_agent(
         self,

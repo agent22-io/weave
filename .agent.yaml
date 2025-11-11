@@ -4,8 +4,8 @@
 version: "1.0"
 
 # Optional: define environment variables
-# env:
-#   DEFAULT_MODEL: "gpt-4"
+env:
+  DEFAULT_MODEL: "gemini-2.5-flash"
 
 agents:
   researcher:

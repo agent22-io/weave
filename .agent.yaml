@@ -1,0 +1,49 @@
+# Agent Configuration
+# https://docs.weave.dev
+
+version: "1.0"
+
+# Optional: define environment variables
+# env:
+#   DEFAULT_MODEL: "gpt-4"
+
+agents:
+  researcher:
+    model: "gpt-4"
+    tools:
+      - http_request
+      - file_read
+      - json_validator
+    config:
+      temperature: 0.7
+      max_tokens: 1000
+    outputs: "research_summary"
+
+  writer:
+    model: "claude-3-opus"
+    tools:
+      - text_length
+      - string_formatter
+    inputs: "researcher"  # Takes input from researcher
+    config:
+      temperature: 0.9
+      max_tokens: 2000
+    outputs: "draft_article"
+
+  editor:
+    model: "gpt-4"
+    tools:
+      - file_write
+      - text_length
+    inputs: "writer"
+    config:
+      temperature: 0.3
+    outputs: "final_article"
+
+weaves:
+  content_pipeline:
+    description: "Research, write, and edit content"
+    agents:
+      - researcher
+      - writer
+      - editor

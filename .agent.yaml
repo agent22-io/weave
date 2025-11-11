@@ -9,7 +9,7 @@ version: "1.0"
 
 agents:
   researcher:
-    model: "gpt-4"
+    model: "gemini-2.5-flash"
     tools:
       - http_request
       - file_read

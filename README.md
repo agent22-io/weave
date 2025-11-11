@@ -2,10 +2,7 @@
 
 **Declarative AI agent orchestration framework**
 
-Weave is a framework for building and composing AI agents. Define multi-agent workflows in simple YAML, with automatic dependency resolution and real LLM execution.
-
-[![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+Weave is a framework for building and composing interopable AI agents. Define what you want your agent to do in plain yaml and let weave worry about how to build the agent.
 
 ## ✨ Why Weave?
 

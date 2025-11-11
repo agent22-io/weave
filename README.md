@@ -7,10 +7,8 @@ Weave is a framework for building and composing interopable AI agents. Define wh
 ## ✨ Why Weave?
 
 - ⚡ **Fast** - Go from idea to working agent workflow quickly
-- 🔗 **Interoperable** - Agents work together through declarative composition
 - 🎯 **Simple** - Clean YAML configuration
 - 🔧 **Extensible** - Custom tools and plugins
-- 📊 **Observable** - Track execution, outputs, and token usage
 
 ## ✨ Key Features
 
@@ -200,9 +198,9 @@ weave mcp --server-tools filesystem
 ### Core Commands
 
 - `weave init` - Initialize new project
+- `weave run` - Interactive agentic chat
 - `weave plan` - Preview execution plan
 - `weave apply` - Execute workflow
-- `weave run` - Interactive agentic chat
 
 ### Development
 
@@ -278,12 +276,10 @@ weave resources --create
 
 Complete examples with resources:
 
-- **[basic.agent.yaml](examples/basic.agent.yaml)** - Simple pipeline
 - **[coding-agent-example/](examples/coding-agent-example/)** - Software development
 - **[content-creation-example/](examples/content-creation-example/)** - Blog posts
 - **[research-assistant-example/](examples/research-assistant-example/)** - Research & analysis
 - **[customer-support-example/](examples/customer-support-example/)** - Support automation
-- **[data-processing-example/](examples/data-processing-example/)** - ETL pipelines
 
 ## 🏗️ Architecture
 
@@ -318,53 +314,4 @@ Complete examples with resources:
 - **Tools** (`src/weave/tools/`) - Tool calling system + MCP
 - **Plugins** (`src/weave/plugins/`) - Plugin system
 
-## 🤝 Contributing
 
-Contributions welcome! See development setup:
-
-```bash
-# Clone and install dev dependencies
-git clone https://github.com/weave/weave-cli.git
-cd weave-cli
-pip install -e ".[dev]"
-
-# Run tests
-pytest
-
-# Format code
-black src/ tests/
-ruff check src/ tests/
-
-# Type checking
-mypy src/
-```
-
-## 🛣️ Roadmap
-
-### Current: v0.1.0
-- ✅ Real LLM execution (OpenAI, Anthropic)
-- ✅ 9 built-in tools
-- ✅ MCP protocol integration
-- ✅ Plugin system
-- ✅ Dependency graphs
-- ✅ Development mode
-
-### Planned: v0.2.0
-- [ ] More LLM providers (Google, Cohere)
-- [ ] Advanced memory systems
-- [ ] Parallel agent execution
-- [ ] Web UI for monitoring
-- [ ] Cloud deployment (AWS, GCP)
-
-## 📄 License
-
-MIT License - see [LICENSE](LICENSE) for details.
-
-## 📬 Contact
-
-- GitHub Issues: [github.com/weave/weave-cli/issues](https://github.com/weave/weave-cli/issues)
-- Documentation: [docs.weave.dev](https://docs.weave.dev)
-
----
-
-Made with ❤️ by the Weave team

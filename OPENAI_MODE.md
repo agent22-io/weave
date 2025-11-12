@@ -59,6 +59,17 @@ Request/response logs:
 [2025-11-12 10:31:02] [INFO]   Content: The capital of France is Paris. It is the country's largest city...
 ```
 
+Tool call logs (when agent uses tools):
+
+```
+[2025-11-12 10:32:15] [INFO] → Request: model=researcher, stream=false
+[2025-11-12 10:32:15] [INFO]   Message: Search for latest AI news
+[2025-11-12 10:32:17] [INFO] 🔧 Tool Calls: session=b2c3d4e5, count=1
+[2025-11-12 10:32:17] [INFO]   [1] web_search({"query": "latest AI news 2025"})
+[2025-11-12 10:32:17] [INFO] ← Response: session=b2c3d4e5
+[2025-11-12 10:32:17] [INFO]   Content: Based on recent searches, here are the latest AI developments...
+```
+
 ## API Endpoints
 
 ### POST /v1/chat/completions
@@ -240,7 +251,8 @@ agents:
 - ✅ OpenAI-compatible API format
 - ✅ Non-streaming responses
 - ✅ Streaming responses
-- ✅ Simple, clean logging output
+- ✅ Simple, clean logging output with timestamps
+- ✅ Tool call logging (shows when agents use tools)
 - ✅ Works with any OpenAI-compatible client
 - ✅ Headless operation (no interactive prompts)
 - ✅ Uses existing Weave agent configurations

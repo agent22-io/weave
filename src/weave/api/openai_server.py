@@ -233,6 +233,10 @@ class OpenAIServer:
         context = {"task": user_message}
         response = await executor.execute_agent(self.agent_obj, context)
 
+        # Log tool calls if any
+        if response.tool_calls:
+            self._log_tool_calls(response.tool_calls, session_id)
+
         # Log response
         self._log_response(response.content, session_id)
 
@@ -271,6 +275,10 @@ class OpenAIServer:
         # Execute agent
         context = {"task": user_message}
         response = await executor.execute_agent(self.agent_obj, context)
+
+        # Log tool calls if any
+        if response.tool_calls:
+            self._log_tool_calls(response.tool_calls, session_id)
 
         # Log response
         self._log_response(response.content, session_id)
@@ -328,6 +336,28 @@ class OpenAIServer:
         preview = content[:100] + "..." if len(content) > 100 else content
         self._log(f"← Response: session={session_id}")
         self._log(f"  Content: {preview}")
+
+    def _log_tool_calls(self, tool_calls: List[Dict[str, Any]], session_id: str):
+        """Log tool calls made by the agent."""
+        self._log(f"🔧 Tool Calls: session={session_id}, count={len(tool_calls)}")
+        for i, tc in enumerate(tool_calls, 1):
+            tool_name = tc.get("name", "unknown")
+            tool_args = tc.get("arguments", "{}")
+            # Parse arguments if string
+            if isinstance(tool_args, str):
+                try:
+                    import json
+                    args_dict = json.loads(tool_args)
+                    args_preview = str(args_dict)[:80]
+                except:
+                    args_preview = tool_args[:80]
+            else:
+                args_preview = str(tool_args)[:80]
+
+            if len(str(tool_args)) > 80:
+                args_preview += "..."
+
+            self._log(f"  [{i}] {tool_name}({args_preview})")
 
     def run(self):
         """Run the server."""

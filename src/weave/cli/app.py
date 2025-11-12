@@ -946,13 +946,44 @@ def run(
     config: Path = typer.Option(
         ".agent.yaml", "--config", "-c", help="Path to config file"
     ),
+    openai_mode: bool = typer.Option(
+        False, "--openai-mode", help="Run as OpenAI-compatible API server"
+    ),
+    host: str = typer.Option(
+        "0.0.0.0", "--host", help="Host to bind to (OpenAI mode only)"
+    ),
+    port: int = typer.Option(
+        8000, "--port", help="Port to bind to (OpenAI mode only)"
+    ),
 ) -> None:
     """
-    Run an interactive agentic chat session.
+    Run an interactive agentic chat session or OpenAI-compatible API server.
 
-    Start a conversational interface with an AI agent from your config.
+    Start a conversational interface with an AI agent from your config,
+    or run as a headless OpenAI-compatible API endpoint with --openai-mode.
     """
     try:
+        # Handle OpenAI mode
+        if openai_mode:
+            try:
+                from ..api.openai_server import start_openai_server
+            except ImportError:
+                console.print(
+                    "[red]Error:[/red] FastAPI and uvicorn are required for OpenAI mode.\n"
+                    "[dim]Install with:[/dim] pip install 'weave-cli[api]'\n"
+                )
+                raise typer.Exit(1)
+
+            start_openai_server(
+                agent_name=agent,
+                config_path=config,
+                host=host,
+                port=port,
+                verbose=True
+            )
+            return
+
+        # Interactive mode (original behavior)
         import asyncio
         from ..runtime.llm_executor import LLMExecutor
         from ..core.sessions import ConversationSession

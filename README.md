@@ -14,7 +14,7 @@ Weave is a declarative framework for building and composing interopable AI agent
 
 - **Declarative YAML** - Define agents and workflows in configuration
 - **Automatic Orchestration** - Smart dependency resolution and execution ordering
-- **OpenAI Support** - Supports OpenAI natively
+- **OpenAI-Compatible API** - Run agents as headless API endpoints compatible with OpenAI format
 - **Tool Calling** - 9 built-in tools + custom tool support
 - **Plugin System** - Built-in plugins for web search, data processing, formatting
 - **MCP Integration** - Connect to Model Context Protocol servers
@@ -81,10 +81,36 @@ weaves:
 weave run
 
 # Chat with specific agent from config
-weave run --agent researcher
+weave run agent researcher
 ```
 
-### 3. Review Execution Plan
+### 3. Run as OpenAI-Compatible API
+
+Run your agent as a headless API server that's compatible with OpenAI's API format:
+
+```bash
+# Start API server
+weave run agent researcher --openai-mode
+
+# Custom host and port
+weave run agent researcher --openai-mode --host 127.0.0.1 --port 3000
+```
+
+Use with any OpenAI-compatible client:
+
+```python
+from openai import OpenAI
+
+client = OpenAI(base_url="http://localhost:8000/v1", api_key="dummy")
+response = client.chat.completions.create(
+    model="researcher",
+    messages=[{"role": "user", "content": "Hello!"}]
+)
+```
+
+See [OPENAI_MODE.md](OPENAI_MODE.md) for detailed documentation.
+
+### 4. Review Execution Plan
 
 ```bash
 weave plan
@@ -94,9 +120,9 @@ Output:
 ```
 📊 Execution Plan: content_pipeline
 
-Order  Agent       Model         Inputs      
-1      researcher  gpt-4         -           
-2      writer      claude-3-opus researcher  
+Order  Agent       Model         Inputs
+1      researcher  gpt-4         -
+2      writer      claude-3-opus researcher
 
 Execution graph:
   researcher → writer
@@ -104,7 +130,7 @@ Execution graph:
 2 agents will be created
 ```
 
-### 4. Apply Your Workflow
+### 5. Apply Your Workflow
 
 ```bash
 weave apply

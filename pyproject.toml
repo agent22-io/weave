@@ -83,6 +83,12 @@ mcp = [
     "mcp>=0.1.0",
 ]
 
+# OpenAI-compatible API server
+api = [
+    "fastapi>=0.104.0",
+    "uvicorn[standard]>=0.24.0",
+]
+
 # All optional features
 all = [
     "openai>=1.0.0",
@@ -91,6 +97,8 @@ all = [
     "requests>=2.31.0",
     "beautifulsoup4>=4.12.0",
     "mcp>=0.1.0",
+    "fastapi>=0.104.0",
+    "uvicorn[standard]>=0.24.0",
 ]
 
 [project.scripts]

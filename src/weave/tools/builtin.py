@@ -225,6 +225,52 @@ def file_list(directory: str = ".", pattern: str = "*", recursive: bool = False)
         return {"error": str(e), "directory": directory}
 
 
+def bash_execute(command: str, timeout: int = 30, working_dir: str = None) -> Dict[str, Any]:
+    """Execute a bash command."""
+    try:
+        import subprocess
+
+        # Set working directory
+        cwd = Path(working_dir).expanduser().resolve() if working_dir else None
+
+        # Validate working directory if specified
+        if cwd and not cwd.exists():
+            return {"error": f"Working directory not found: {working_dir}"}
+
+        if cwd and not cwd.is_dir():
+            return {"error": f"Not a directory: {working_dir}"}
+
+        # Execute command
+        result = subprocess.run(
+            command,
+            shell=True,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            cwd=cwd
+        )
+
+        return {
+            "command": command,
+            "stdout": result.stdout,
+            "stderr": result.stderr,
+            "exit_code": result.returncode,
+            "success": result.returncode == 0,
+            "working_dir": str(cwd) if cwd else os.getcwd(),
+        }
+    except subprocess.TimeoutExpired:
+        return {
+            "error": f"Command timed out after {timeout} seconds",
+            "command": command,
+            "timeout": timeout,
+        }
+    except Exception as e:
+        return {
+            "error": str(e),
+            "command": command,
+        }
+
+
 def get_builtin_tools() -> List[Tool]:
     """Get all built-in tools.
 
@@ -480,5 +526,35 @@ def get_builtin_tools() -> List[Tool]:
                 tags=["file", "list", "directory"],
             ),
             handler=file_list,
+        ),
+        Tool(
+            definition=ToolDefinition(
+                name="bash_execute",
+                description="Execute bash commands and return output",
+                parameters=[
+                    ToolParameter(
+                        name="command",
+                        type=ParameterType.STRING,
+                        description="Bash command to execute",
+                        required=True,
+                    ),
+                    ToolParameter(
+                        name="timeout",
+                        type=ParameterType.NUMBER,
+                        description="Command timeout in seconds",
+                        required=False,
+                        default=30,
+                    ),
+                    ToolParameter(
+                        name="working_dir",
+                        type=ParameterType.STRING,
+                        description="Working directory for command execution",
+                        required=False,
+                    ),
+                ],
+                category="system",
+                tags=["bash", "shell", "command", "execute"],
+            ),
+            handler=bash_execute,
         ),
     ]

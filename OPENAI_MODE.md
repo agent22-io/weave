@@ -44,6 +44,7 @@ When running in OpenAI mode, you'll see simple feedback output:
 [2025-11-12 10:30:45] [INFO] Starting Weave OpenAI-Compatible API server...
 [2025-11-12 10:30:45] [INFO] Agent: researcher
 [2025-11-12 10:30:45] [INFO] Config: .agent.yaml
+[2025-11-12 10:30:45] [INFO] ✓ Loaded 3 tools: file_read, http_request, json_validator
 [2025-11-12 10:30:45] [INFO] ✓ Loaded agent: researcher
 [2025-11-12 10:30:45] [INFO] ✓ Model: gemini-2.5-flash
 [2025-11-12 10:30:45] [INFO] ✓ Server started on http://0.0.0.0:8765
@@ -63,11 +64,13 @@ Tool call logs (when agent uses tools):
 
 ```
 [2025-11-12 10:32:15] [INFO] → Request: model=researcher, stream=false
-[2025-11-12 10:32:15] [INFO]   Message: Search for latest AI news
+[2025-11-12 10:32:15] [INFO]   Message: Read the README file and tell me what this repo is about
 [2025-11-12 10:32:17] [INFO] 🔧 Tool Calls: session=b2c3d4e5, count=1
-[2025-11-12 10:32:17] [INFO]   [1] web_search({"query": "latest AI news 2025"})
-[2025-11-12 10:32:17] [INFO] ← Response: session=b2c3d4e5
-[2025-11-12 10:32:17] [INFO]   Content: Based on recent searches, here are the latest AI developments...
+[2025-11-12 10:32:17] [INFO]   [1] file_read({"file_path": "/home/user/weave/README.md"})
+[2025-11-12 10:32:17] [INFO]   → Executing: file_read
+[2025-11-12 10:32:17] [INFO]   ✓ Result: # 🧵 Weave\n\n**Build AI Agents in seconds, not months**\n\nWeave is a declarative...
+[2025-11-12 10:32:18] [INFO] ← Response: session=b2c3d4e5
+[2025-11-12 10:32:18] [INFO]   Content: Based on the README, this repository is about Weave, a declarative framework...
 ```
 
 ## API Endpoints
@@ -252,7 +255,8 @@ agents:
 - ✅ Non-streaming responses
 - ✅ Streaming responses
 - ✅ Simple, clean logging output with timestamps
-- ✅ Tool call logging (shows when agents use tools)
+- ✅ Full tool support (agents can use all configured tools)
+- ✅ Tool call logging (shows tool invocations and results)
 - ✅ Works with any OpenAI-compatible client
 - ✅ Headless operation (no interactive prompts)
 - ✅ Uses existing Weave agent configurations

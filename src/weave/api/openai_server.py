@@ -28,6 +28,7 @@ from ..parser.config import load_config_from_path
 from ..runtime.llm_executor import LLMExecutor
 from ..core.sessions import ConversationSession
 from ..core.models import WeaveConfig
+from ..tools.executor import ToolExecutor
 
 
 # OpenAI-compatible request/response models
@@ -105,6 +106,7 @@ class OpenAIServer:
         self.app = FastAPI(title="Weave OpenAI-Compatible API")
         self.weave_config: Optional[WeaveConfig] = None
         self.agent_obj = None
+        self.tool_executor: Optional[ToolExecutor] = None
 
         # Setup routes
         self._setup_routes()
@@ -124,6 +126,12 @@ class OpenAIServer:
                         f"Available agents: {available}"
                     )
                 self.agent_obj = self.weave_config.agents[self.agent_name]
+
+                # Initialize tool executor if agent has tools
+                if self.agent_obj.tools:
+                    self.tool_executor = ToolExecutor()
+                    self._log(f"✓ Loaded {len(self.agent_obj.tools)} tools: {', '.join(self.agent_obj.tools)}")
+
                 self._log(f"✓ Loaded agent: {self.agent_name}")
                 self._log(f"✓ Model: {self.agent_obj.model}")
                 self._log(f"✓ Server started on http://{self.host}:{self.port}")
@@ -229,13 +237,21 @@ class OpenAIServer:
         session_id: str
     ) -> ChatCompletionResponse:
         """Generate a non-streaming response."""
+        # Prepare tools if agent has them
+        tools = None
+        if self.agent_obj.tools and self.tool_executor:
+            tools = await self._prepare_tools(self.agent_obj.tools)
+
         # Execute agent
         context = {"task": user_message}
-        response = await executor.execute_agent(self.agent_obj, context)
+        response = await executor.execute_agent(self.agent_obj, context, tools)
 
-        # Log tool calls if any
+        # Handle tool calls if present
         if response.tool_calls:
             self._log_tool_calls(response.tool_calls, session_id)
+            response = await self._handle_tool_calls(
+                self.agent_obj, response, context, executor, session_id
+            )
 
         # Log response
         self._log_response(response.content, session_id)
@@ -272,13 +288,21 @@ class OpenAIServer:
         completion_id = f"chatcmpl-{uuid.uuid4().hex[:12]}"
         created = int(time.time())
 
+        # Prepare tools if agent has them
+        tools = None
+        if self.agent_obj.tools and self.tool_executor:
+            tools = await self._prepare_tools(self.agent_obj.tools)
+
         # Execute agent
         context = {"task": user_message}
-        response = await executor.execute_agent(self.agent_obj, context)
+        response = await executor.execute_agent(self.agent_obj, context, tools)
 
-        # Log tool calls if any
+        # Handle tool calls if present
         if response.tool_calls:
             self._log_tool_calls(response.tool_calls, session_id)
+            response = await self._handle_tool_calls(
+                self.agent_obj, response, context, executor, session_id
+            )
 
         # Log response
         self._log_response(response.content, session_id)
@@ -358,6 +382,91 @@ class OpenAIServer:
                 args_preview += "..."
 
             self._log(f"  [{i}] {tool_name}({args_preview})")
+
+    async def _prepare_tools(self, tool_names: List[str]) -> List[Dict[str, Any]]:
+        """Prepare tool definitions for LLM."""
+        tools = []
+
+        for tool_name in tool_names:
+            tool = self.tool_executor.get_tool(tool_name)
+            if tool:
+                tools.append(tool.definition.to_json_schema())
+
+        return tools if tools else None
+
+    async def _handle_tool_calls(
+        self, agent, llm_response, context: Dict[str, Any], executor: LLMExecutor, session_id: str
+    ):
+        """Handle tool calls from LLM response."""
+        import json
+
+        # Execute each tool call
+        tool_results = []
+
+        for tool_call in llm_response.tool_calls:
+            tool_name = tool_call.get("name")
+            tool_args = tool_call.get("arguments", {})
+
+            # Parse arguments if string
+            if isinstance(tool_args, str):
+                try:
+                    tool_args = json.loads(tool_args)
+                except:
+                    pass
+
+            self._log(f"  → Executing: {tool_name}")
+
+            # Execute tool
+            try:
+                tool = self.tool_executor.get_tool(tool_name)
+                if tool and tool.handler:
+                    # Call the tool handler
+                    if asyncio.iscoroutinefunction(tool.handler):
+                        result = await tool.handler(**tool_args)
+                    else:
+                        result = tool.handler(**tool_args)
+
+                    tool_results.append({
+                        "tool": tool_name,
+                        "result": result,
+                        "success": True
+                    })
+
+                    # Log tool result
+                    result_preview = str(result)[:100]
+                    if len(str(result)) > 100:
+                        result_preview += "..."
+                    self._log(f"  ✓ Result: {result_preview}")
+                else:
+                    self._log(f"  ✗ Tool not found: {tool_name}", error=True)
+                    tool_results.append({
+                        "tool": tool_name,
+                        "error": f"Tool not found: {tool_name}",
+                        "success": False
+                    })
+            except Exception as e:
+                self._log(f"  ✗ Error: {e}", error=True)
+                tool_results.append({
+                    "tool": tool_name,
+                    "error": str(e),
+                    "success": False
+                })
+
+        # For now, just return the LLM response with tool results in content
+        # In a full implementation, we'd send tool results back to LLM for another round
+        if tool_results:
+            # Append tool results to the response content
+            results_text = "\n\n[Tool Results]\n"
+            for tr in tool_results:
+                if tr["success"]:
+                    results_text += f"- {tr['tool']}: {tr['result']}\n"
+                else:
+                    results_text += f"- {tr['tool']}: ERROR - {tr['error']}\n"
+
+            llm_response.content = llm_response.content + results_text
+
+        return llm_response
+
 
     def run(self):
         """Run the server."""

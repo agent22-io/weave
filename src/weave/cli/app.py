@@ -183,6 +183,9 @@ def plan(
         console.print("[green]✅ Configuration valid[/green]\n")
 
         # Determine which weave to plan
+        if not weave_config.weaves:
+            raise WeaveError("No weaves defined in configuration. Define at least one weave or use 'weave run' for interactive chat.")
+
         if weave:
             if weave not in weave_config.weaves:
                 available = ", ".join(weave_config.weaves.keys())
@@ -245,6 +248,9 @@ def apply(
         weave_config = load_config_from_path(config)
 
         # Determine which weave to apply
+        if not weave_config.weaves:
+            raise WeaveError("No weaves defined in configuration. Define at least one weave or use 'weave run' for interactive chat.")
+
         if weave:
             if weave not in weave_config.weaves:
                 available = ", ".join(weave_config.weaves.keys())
@@ -1022,6 +1028,11 @@ def run(
 
         # Chat loop
         async def chat_loop():
+            from rich.live import Live
+            from rich.spinner import Spinner
+            from rich.text import Text
+            from rich.panel import Panel
+
             while True:
                 try:
                     # Get user input
@@ -1034,12 +1045,16 @@ def run(
                         console.print("\n[dim]Goodbye! 👋[/dim]\n")
                         break
 
-                    # Execute agent
-                    context = {"task": user_input}
-                    response = await executor.execute_agent(agent_obj, context)
+                    # Show thinking indicator while executing
+                    spinner = Spinner("dots", text="Thinking...", style="cyan")
 
-                    # Display response
-                    console.print(f"\n[bold green]Assistant:[/bold green] {response.content}")
+                    with Live(spinner, console=console, refresh_per_second=10, transient=True):
+                        # Execute agent
+                        context = {"task": user_input}
+                        response = await executor.execute_agent(agent_obj, context)
+
+                    # Display response with better formatting
+                    console.print(f"\n[bold green]Assistant:[/bold green]\n{response.content}")
 
                 except KeyboardInterrupt:
                     console.print("\n\n[dim]Goodbye! 👋[/dim]\n")

@@ -236,7 +236,7 @@ class WeaveConfig(BaseModel):
 
     # Agent and workflow definitions
     agents: Dict[str, Agent]
-    weaves: Dict[str, Weave]
+    weaves: Dict[str, Weave] = Field(default_factory=dict)
 
     @model_validator(mode="after")
     def validate_references(self) -> "WeaveConfig":
@@ -292,11 +292,4 @@ class WeaveConfig(BaseModel):
         # 3. Tool availability can change dynamically
         # Tool validation happens during execution instead
 
-        return self
-
-    @model_validator(mode="after")
-    def ensure_at_least_one_weave(self) -> "WeaveConfig":
-        """Ensure at least one weave is defined."""
-        if not self.weaves:
-            raise ValueError("Configuration must define at least one weave")
         return self

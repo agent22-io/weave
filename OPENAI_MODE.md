@@ -69,6 +69,7 @@ Tool call logs (when agent uses tools):
 [2025-11-12 10:32:17] [INFO]   [1] file_read({"file_path": "/home/user/weave/README.md"})
 [2025-11-12 10:32:17] [INFO]   → Executing: file_read
 [2025-11-12 10:32:17] [INFO]   ✓ Result: # 🧵 Weave\n\n**Build AI Agents in seconds, not months**\n\nWeave is a declarative...
+[2025-11-12 10:32:17] [INFO]   → Sending tool results back to LLM for processing...
 [2025-11-12 10:32:18] [INFO] ← Response: session=b2c3d4e5
 [2025-11-12 10:32:18] [INFO]   Content: Based on the README, this repository is about Weave, a declarative framework...
 ```
@@ -274,7 +275,8 @@ agents:
 - The `model` parameter in API requests is currently informational (the configured agent model is used)
 - API keys from the request are not validated (authentication should be handled at the infrastructure level)
 - The server is single-threaded by default; for production use, consider using multiple workers
-- Session management is automatic; each request creates a new session
+- **Conversation Memory**: Like the OpenAI API, each request is stateless. To maintain conversation history, the client must send the full conversation in the `messages` array with each request. Each request creates a new session internally.
+- **Tool Use Loop**: When agents use tools, the server automatically sends tool results back to the LLM for processing, creating an agentic loop until a final answer is generated
 
 ## Advanced Configuration
 

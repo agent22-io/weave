@@ -393,28 +393,26 @@ class OpenAIServer:
 
             self._log(f"  [{i}] {tool_name}({args_preview})")
 
-    async def _prepare_tools(self, tool_names: List[str]) -> Optional[List[Dict[str, Any]]]:
-        """Prepare tool definitions for LLM (OpenAI format)."""
-        if not self.tool_executor:
-            return None
-
+    async def _prepare_tools(self, tool_names: List[str]) -> List[Dict[str, Any]]:
+        """Prepare tool definitions for LLM in OpenAI format."""
         tools = []
 
         for tool_name in tool_names:
             tool = self.tool_executor.get_tool(tool_name)
             if tool:
-                # Convert to OpenAI JSON schema format
-                schema = tool.definition.to_json_schema("openai")
-                tools.append(schema)
-            else:
-                self._log(f"⚠ Tool not found: {tool_name}", error=False)
+                # Convert to OpenAI tool format
+                tool_schema = tool.definition.to_json_schema()
+                tools.append({
+                    "type": "function",
+                    "function": tool_schema
+                })
 
         return tools if tools else None
 
     async def _handle_tool_calls(
         self, agent, llm_response, context: Dict[str, Any], executor: LLMExecutor, session_id: str
     ):
-        """Handle tool calls from LLM response using unified ToolExecutor."""
+        """Handle tool calls from LLM response and get final answer."""
         import json
 
         if not self.tool_executor:
@@ -422,11 +420,12 @@ class OpenAIServer:
             return llm_response
 
         # Execute each tool call
-        tool_results = []
+        tool_messages = []
 
         for tool_call in llm_response.tool_calls:
             tool_name = tool_call.get("name")
             tool_args = tool_call.get("arguments", {})
+            tool_call_id = tool_call.get("id", str(uuid.uuid4()))
 
             # Parse arguments if string
             if isinstance(tool_args, str):
@@ -441,46 +440,57 @@ class OpenAIServer:
             try:
                 result = await self.tool_executor.execute_async(tool_name, tool_args)
 
-                if "error" in result:
-                    self._log(f"  ✗ Error: {result['error']}", error=True)
-                    tool_results.append({
-                        "tool": tool_name,
-                        "error": result["error"],
-                        "success": False
-                    })
-                else:
-                    tool_results.append({
-                        "tool": tool_name,
-                        "result": result,
-                        "success": True
-                    })
-
                     # Log tool result
                     result_preview = str(result)[:100]
                     if len(str(result)) > 100:
                         result_preview += "..."
                     self._log(f"  ✓ Result: {result_preview}")
 
+                    # Format result for LLM
+                    tool_messages.append({
+                        "role": "tool",
+                        "tool_call_id": tool_call_id,
+                        "content": json.dumps(result) if not isinstance(result, str) else result
+                    })
+                else:
+                    self._log(f"  ✗ Tool not found: {tool_name}", error=True)
+                    tool_messages.append({
+                        "role": "tool",
+                        "tool_call_id": tool_call_id,
+                        "content": f"Error: Tool '{tool_name}' not found"
+                    })
             except Exception as e:
                 self._log(f"  ✗ Error: {e}", error=True)
-                tool_results.append({
-                    "tool": tool_name,
-                    "error": str(e),
-                    "success": False
+                tool_messages.append({
+                    "role": "tool",
+                    "tool_call_id": tool_call_id,
+                    "content": f"Error executing {tool_name}: {str(e)}"
                 })
 
-        # For now, just return the LLM response with tool results in content
-        # In a full implementation, we'd send tool results back to LLM for another round
-        if tool_results:
-            # Append tool results to the response content
-            results_text = "\n\n[Tool Results]\n"
-            for tr in tool_results:
-                if tr["success"]:
-                    results_text += f"- {tr['tool']}: {tr['result']}\n"
-                else:
-                    results_text += f"- {tr['tool']}: ERROR - {tr['error']}\n"
+        # Send tool results back to LLM for final response
+        if tool_messages:
+            self._log(f"  → Sending tool results back to LLM for processing...")
 
-            llm_response.content = llm_response.content + results_text
+            # Add tool results to session
+            if executor.session:
+                for msg in tool_messages:
+                    executor.session.add_message(msg["role"], msg["content"])
+
+            # Prepare tools again for potential multi-step tool use
+            tools = await self._prepare_tools(agent.tools) if agent.tools else None
+
+            # Get final response from LLM
+            try:
+                final_response = await executor.execute_agent(agent, context, tools)
+                return final_response
+            except Exception as e:
+                self._log(f"  ✗ Error getting final response: {e}", error=True)
+                # Fallback: return original response with tool results appended
+                results_text = "\n\n[Tool Results]\n"
+                for msg in tool_messages:
+                    results_text += f"- {msg['content']}\n"
+                llm_response.content = llm_response.content + results_text
+                return llm_response
 
         return llm_response
 
